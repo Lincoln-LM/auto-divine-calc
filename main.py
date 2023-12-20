@@ -165,7 +165,6 @@ if __name__ == "__main__":
     )
     plt.ion()
     while True:
-        plt.clf()
         scanning = True
         while scanning:
             # update every 100 checks
@@ -217,6 +216,7 @@ if __name__ == "__main__":
                     np.fft.fft2(raw_data) * np.fft.fft2(KERNEL, s=raw_data.shape)
                 )
             )
+            plt.clf()
             plt.imshow(
                 convoled_data,
                 origin="upper",
