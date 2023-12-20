@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        artifact_pattern: ["dist/*", dist/auto_divine_calc*]
+        upload_lib: [true, false]
       
     runs-on: ${{ matrix.os }}
     
@@ -33,8 +33,15 @@ jobs:
       - name: Freeze
         run: |
           cxfreeze main.py --target-dir dist --target-name=auto_divine_calc -c
-      - name: Upload Artifacts
+      - name: Upload Full Artifact
+        if: ${{ matrix.upload_lib }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }} ${{ matrix.artifact_pattern }} Build
-          path: ${{ matrix.artifact_pattern }}
+          name: ${{ runner.os }} Includes Lib ${{ matrix.upload_lib }} Build
+          path: "dist/*"
+      - name: Upload Executable Artifact
+        if: ${{ matrix.upload_lib }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: ${{ runner.os }} Includes Lib ${{ matrix.upload_lib }} Build
+            path: "dist/auto_divine_calc*"
