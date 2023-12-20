@@ -11,6 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        artifact_pattern: ["dist/*", dist/auto_divine_calc*]
       
     runs-on: ${{ matrix.os }}
     

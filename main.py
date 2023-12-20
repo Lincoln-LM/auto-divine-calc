@@ -166,10 +166,17 @@ if __name__ == "__main__":
     plt.ion()
     while True:
         plt.clf()
-        while True:
-            clipboard = pyperclip.paste()
-            if clipboard != last_clipboard and "minecraft" in clipboard:
-                break
+        scanning = True
+        while scanning:
+            # update every 100 checks
+            for _ in range(100):
+                clipboard = pyperclip.paste()
+                if clipboard != last_clipboard and "minecraft" in clipboard:
+                    scanning = False
+                    break
+            plt.draw()
+            plt.gcf().canvas.draw_idle()
+            plt.gcf().canvas.start_event_loop(0.001)
         last_clipboard = clipboard
         # first f3+i
         if "setblock" in last_clipboard:
@@ -220,4 +227,4 @@ if __name__ == "__main__":
         # update window w/o stealing focus
         plt.draw()
         plt.gcf().canvas.draw_idle()
-        plt.gcf().canvas.start_event_loop(0.1)
+        plt.gcf().canvas.start_event_loop(0.001)
