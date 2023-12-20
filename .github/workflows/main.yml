@@ -40,7 +40,7 @@ jobs:
           name: ${{ runner.os }} Includes Lib ${{ matrix.upload_lib }} Build
           path: "dist/*"
       - name: Upload Executable Artifact
-        if: ${{ matrix.upload_lib }}
+        if: ${{ !matrix.upload_lib }}
         uses: actions/upload-artifact@v4
         with:
             name: ${{ runner.os }} Includes Lib ${{ matrix.upload_lib }} Build
