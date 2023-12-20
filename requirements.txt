@@ -1,0 +1,6 @@
+matplotlib
+numba
+numpy
+scipy
+numba-progress
+pyperclip
