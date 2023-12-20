@@ -14,6 +14,7 @@ from numba_progress.numba_atomic import atomic_add
 
 THREADS = numba.get_num_threads()
 RESULT_COUNT = 10000
+KERNEL_SIZE = 16
 
 
 class PortalOrientation(IntEnum):
@@ -151,6 +152,17 @@ if __name__ == "__main__":
         12,
         0,
     )
+    size = 701 - KERNEL_SIZE
+    KERNEL = np.fft.ifftshift(
+        np.pad(
+            np.ones((KERNEL_SIZE, KERNEL_SIZE)),
+            (
+                ((size + 1) // 2, size // 2),
+                ((size + 1) // 2, size // 2),
+            ),
+            "constant",
+        )
+    )
     plt.ion()
     while True:
         plt.clf()
@@ -192,10 +204,10 @@ if __name__ == "__main__":
                 ),
                 (701, 701),
             )
+
             convoled_data = np.real(
                 np.fft.ifft2(
-                    np.fft.fft2(raw_data)
-                    * np.fft.fft2(np.ones((16, 16)), s=raw_data.shape)
+                    np.fft.fft2(raw_data) * np.fft.fft2(KERNEL, s=raw_data.shape)
                 )
             )
             plt.imshow(
