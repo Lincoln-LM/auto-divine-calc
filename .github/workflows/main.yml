@@ -37,5 +37,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ runner.os }} Build
-          path: |
-            dist/*
+          path: ${{ runner.artifact_pattern }}
