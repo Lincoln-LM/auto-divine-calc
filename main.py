@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numba
 import numpy as np
 import pyperclip
-import scipy as sp
 from numba_progress.numba_atomic import atomic_add
 
 
@@ -193,9 +192,11 @@ if __name__ == "__main__":
                 ),
                 (701, 701),
             )
-            convoled_data = sp.signal.convolve2d(
-                raw_data,
-                np.ones((16, 16)),
+            convoled_data = np.real(
+                np.fft.ifft2(
+                    np.fft.fft2(raw_data)
+                    * np.fft.fft2(np.ones((16, 16)), s=raw_data.shape)
+                )
             )
             plt.imshow(
                 convoled_data,
