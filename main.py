@@ -106,6 +106,33 @@ def get_first_start_no_biomes(seed):
     return chunk_x, chunk_z
 
 
+@numba.njit
+def get_first_three_starts_no_biomes(seed):
+    """Generate the first 3 stronghold start chunks w/o accounting for biomes"""
+    seed = init(seed)
+    seed, rand_0 = next_double(seed)
+    seed, rand_1 = next_double(seed)
+    angle = rand_0 * np.pi * np.float64(2)
+    distance_ring = np.float64(4) * np.float64(32) + (
+        rand_1 - np.float64(0.5)
+    ) * np.float64(32) * np.float64(2.5)
+    chunk_x_0 = np.int64(np.round(np.cos(angle) * distance_ring))
+    chunk_z_0 = np.int64(np.round(np.sin(angle) * distance_ring))
+    angle += np.pi * 2.0 / 3.0
+    distance_ring = np.float64(4) * np.float64(32) + (
+        rand_1 - np.float64(0.5)
+    ) * np.float64(32) * np.float64(2.5)
+    chunk_x_1 = np.int64(np.round(np.cos(angle) * distance_ring))
+    chunk_z_1 = np.int64(np.round(np.sin(angle) * distance_ring))
+    angle += np.pi * 2.0 / 3.0
+    distance_ring = np.float64(4) * np.float64(32) + (
+        rand_1 - np.float64(0.5)
+    ) * np.float64(32) * np.float64(2.5)
+    chunk_x_2 = np.int64(np.round(np.cos(angle) * distance_ring))
+    chunk_z_2 = np.int64(np.round(np.sin(angle) * distance_ring))
+    return chunk_x_0, chunk_z_0, chunk_x_1, chunk_z_1, chunk_x_2, chunk_z_2
+
+
 # technically not foolproof
 BT_NULL = -100000
 PORTAL_NULL = -1
@@ -137,8 +164,10 @@ def generate_data(count, bt_x, bt_y, portal_orientation):
             ):
                 continue
             # TODO: nether tree divine
-            x, z = get_first_start_no_biomes(seed)
-            atomic_add(distribution, ((x * 2) + 350) + ((z * 2) + 350) * 701, 1)
+            x_0, z_0, x_1, z_1, x_2, z_2 = get_first_three_starts_no_biomes(seed)
+            atomic_add(distribution, ((x_0 * 2) + 350) + ((z_0 * 2) + 350) * 701, 1)
+            atomic_add(distribution, ((x_1 * 2) + 350) + ((z_1 * 2) + 350) * 701, 1)
+            atomic_add(distribution, ((x_2 * 2) + 350) + ((z_2 * 2) + 350) * 701, 1)
             atomic_add(i, 0, 1)
     return distribution
 
