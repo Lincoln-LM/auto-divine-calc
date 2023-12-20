@@ -168,7 +168,19 @@ if __name__ == "__main__":
     )
     plt.ion()
     # TODO: configuration option
-    plt.figure().canvas.manager.window.attributes("-topmost", 1)
+    canvas = plt.figure().canvas
+    canvas.manager.window.attributes("-topmost", 1)
+
+    def key_press_event(event) -> None:
+        """Handle key press events on the figure window"""
+        global bt_x, bt_z, portal_orientation
+        # TODO: configuration option
+        if event.key == "r":
+            bt_x = bt_z = BT_NULL
+            portal_orientation = PORTAL_NULL
+            plt.clf()
+
+    canvas.mpl_connect("key_press_event", key_press_event)
     while True:
         scanning = True
         while scanning:
@@ -182,7 +194,7 @@ if __name__ == "__main__":
             plt.gcf().canvas.draw_idle()
             plt.gcf().canvas.start_event_loop(0.001)
         last_clipboard = clipboard
-        # first f3+i
+        # f3+i
         if "setblock" in last_clipboard:
             _, x, y, z, full_block = last_clipboard.split(" ")
             block_name, *_ = full_block.split("[")
