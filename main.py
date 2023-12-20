@@ -6,6 +6,7 @@ divine calculations *heavily* based on https://github.com/mjtb49/DivineHeatmapGe
 from enum import IntEnum
 
 import matplotlib.pyplot as plt
+import matplotlib
 import numba
 import numpy as np
 import pyperclip
@@ -15,6 +16,8 @@ from numba_progress.numba_atomic import atomic_add
 THREADS = numba.get_num_threads()
 RESULT_COUNT = 10000
 KERNEL_SIZE = 16
+
+matplotlib.use("TkAgg")
 
 
 class PortalOrientation(IntEnum):
@@ -164,6 +167,8 @@ if __name__ == "__main__":
         )
     )
     plt.ion()
+    # TODO: configuration option
+    plt.figure().canvas.manager.window.attributes("-topmost", 1)
     while True:
         scanning = True
         while scanning:
