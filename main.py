@@ -103,6 +103,20 @@ def test_decorator_80000_x(seed, x):
 
 
 @numba.njit
+def test_tundra_tree(seed, z):
+    """Test if the 0.1 probability decorator with salt near 80000 in chunk 0,0 starts at this Z coordinate"""
+    seed = init(seed + np.int64(80000))
+    seed, chance_rand = next_float(seed)
+    if chance_rand > np.float32(0.1):
+        return False
+    # TODO: x?
+    seed = next_seed(seed)
+    seed = next_seed(seed)
+    z = np.int64(z)
+    return (z << np.int64(44)) <= seed < ((z + np.int64(1)) << np.int64(44))
+
+
+@numba.njit
 def test_disk_60000_x(seed, x):
     """Test if the disk with salt near 60000 in chunk 0,0 starts at this X coordinate"""
     seed = next_seed(init(seed + np.int64(60012)))
@@ -174,6 +188,7 @@ def generate_data(
     decorator_80000_x,
     disk_60000_x,
     nether_fossil_x,
+    tundra_tree_z,
 ):
     """Generate at least ``count`` first stronghold start locations
     based on random seeds that match the buried treasure
@@ -186,6 +201,7 @@ def generate_data(
     decorator_80000_x = np.int64(decorator_80000_x)
     disk_60000_x = np.int64(disk_60000_x)
     nether_fossil_x = np.int64(nether_fossil_x)
+    tundra_tree_z = np.int64(tundra_tree_z)
     distribution = np.zeros(701 * 701, dtype=np.int64)
     i = np.zeros(1, np.int64)
     for _ in numba.prange(THREADS):
@@ -213,6 +229,10 @@ def generate_data(
                 seed, nether_fossil_x
             ):
                 continue
+            if tundra_tree_z != np.int64(NULL) and not test_tundra_tree(
+                seed, tundra_tree_z
+            ):
+                continue
             x_0, z_0, x_1, z_1, x_2, z_2 = get_first_three_starts_no_biomes(seed)
             atomic_add(distribution, ((x_0 * 2) + 350) + ((z_0 * 2) + 350) * 701, 1)
             atomic_add(distribution, ((x_1 * 2) + 350) + ((z_1 * 2) + 350) * 701, 1)
@@ -223,7 +243,9 @@ def generate_data(
 
 if __name__ == "__main__":
     bt_x, bt_z = BT_NULL, BT_NULL
-    portal_orientation = decorator_80000_x = disk_60000_x = nether_fossil_x = NULL
+    portal_orientation = (
+        decorator_80000_x
+    ) = disk_60000_x = nether_fossil_x = tundra_tree_z = NULL
     last_clipboard = pyperclip.paste()
     size = 701 - KERNEL_SIZE
     KERNEL = np.fft.ifftshift(
@@ -243,13 +265,13 @@ if __name__ == "__main__":
 
     def key_press_event(event) -> None:
         """Handle key press events on the figure window"""
-        global bt_x, bt_z, portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x
+        global bt_x, bt_z, portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x, tundra_tree_z
         # TODO: configuration option
         if event.key == "r":
             bt_x = bt_z = BT_NULL
             portal_orientation = (
                 nether_fossil_x
-            ) = decorator_80000_x = disk_60000_x = NULL
+            ) = decorator_80000_x = disk_60000_x = tundra_tree_z = NULL
             plt.clf()
 
     canvas.mpl_connect("key_press_event", key_press_event)
@@ -275,7 +297,10 @@ if __name__ == "__main__":
                 bt_x, bt_z = x >> 4, z >> 4
                 print(f"{block_name=} {bt_x=} {bt_z=}")
             elif 0 <= x <= 15 and 0 <= z <= 15:
-                if block_name == "minecraft:bone_block":
+                if block_name == "minecraft:spruce_log":
+                    tundra_tree_z = z
+                    print(f"{block_name=} {tundra_tree_z=}")
+                elif block_name == "minecraft:bone_block":
                     nether_fossil_x = x
                     print(f"{block_name=} {nether_fossil_x=}")
                 elif block_name in (
@@ -312,6 +337,7 @@ if __name__ == "__main__":
                 nether_fossil_x,
                 decorator_80000_x,
                 disk_60000_x,
+                tundra_tree_z,
             )
         ):
             print("Generating ....")
@@ -324,6 +350,7 @@ if __name__ == "__main__":
                     decorator_80000_x,
                     disk_60000_x,
                     nether_fossil_x,
+                    tundra_tree_z,
                 ),
                 (701, 701),
             )
