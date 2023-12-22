@@ -120,6 +120,22 @@ def test_chance_decorator_80000(seed, z):
 
 
 @numba.njit
+def test_water(seed):
+    """Test if 0,0 can contain a water pool"""
+    seed = init(seed + np.int64(10000))
+    seed, chance_rand = next_float(seed)
+    return chance_rand < np.float32(0.25)
+
+
+@numba.njit
+def test_lava(seed):
+    """Test if 0,0 can contain a lava pool"""
+    seed = init(seed + np.int64(10000))
+    seed, chance_rand = next_float(seed)
+    return chance_rand < np.float32(0.125)
+
+
+@numba.njit
 def test_disk_60000_x(seed, x):
     """Test if the disk with salt near 60000 in chunk 0,0 starts at this X coordinate"""
     seed = next_seed(init(seed + np.int64(60012)))
@@ -192,6 +208,8 @@ def generate_data(
     disk_60000_x,
     nether_fossil_x,
     tundra_tree_z,
+    water,
+    lava,
 ):
     """Generate at least ``count`` first stronghold start locations
     based on random seeds that match the buried treasure
@@ -236,6 +254,10 @@ def generate_data(
                 seed, tundra_tree_z
             ):
                 continue
+            if water and not test_water(seed):
+                continue
+            if lava and not test_lava(seed):
+                continue
             x_0, z_0, x_1, z_1, x_2, z_2 = get_first_three_starts_no_biomes(seed)
             atomic_add(distribution, ((x_0 * 2) + 350) + ((z_0 * 2) + 350) * 701, 1)
             atomic_add(distribution, ((x_1 * 2) + 350) + ((z_1 * 2) + 350) * 701, 1)
@@ -249,6 +271,7 @@ if __name__ == "__main__":
     portal_orientation = (
         decorator_80000_x
     ) = disk_60000_x = nether_fossil_x = tundra_tree_z = NULL
+    water = lava = False
     last_clipboard = pyperclip.paste()
     size = 701 - KERNEL_SIZE
     KERNEL = np.fft.ifftshift(
@@ -266,16 +289,25 @@ if __name__ == "__main__":
     canvas = plt.figure().canvas
     canvas.manager.window.attributes("-topmost", 1)
 
+    scanning = None
+
     def key_press_event(event) -> None:
         """Handle key press events on the figure window"""
-        global bt_x, bt_z, portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x, tundra_tree_z
+        global bt_x, bt_z, portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x, tundra_tree_z, water, lava, scanning
         # TODO: configuration option
         if event.key == "r":
             bt_x = bt_z = BT_NULL
             portal_orientation = (
                 nether_fossil_x
             ) = decorator_80000_x = disk_60000_x = tundra_tree_z = NULL
+            water = lava = False
             plt.clf()
+        elif event.key == "w":
+            water = True
+            scanning = False
+        elif event.key == "l":
+            lava = True
+            scanning = False
 
     canvas.mpl_connect("key_press_event", key_press_event)
     while True:
@@ -333,15 +365,19 @@ if __name__ == "__main__":
             elif yaw <= 135:
                 portal_orientation = PortalOrientation.WEST.value
             print(f"{yaw=} {portal_orientation=}")
-        if BT_NULL not in (bt_x, bt_z) or not all(
-            x == NULL
-            for x in (
-                portal_orientation,
-                nether_fossil_x,
-                decorator_80000_x,
-                disk_60000_x,
-                tundra_tree_z,
+        if (
+            BT_NULL not in (bt_x, bt_z)
+            or not all(
+                x == NULL
+                for x in (
+                    portal_orientation,
+                    nether_fossil_x,
+                    decorator_80000_x,
+                    disk_60000_x,
+                    tundra_tree_z,
+                )
             )
+            or True in (water, lava)
         ):
             print("Generating ....")
             raw_data = np.reshape(
@@ -354,6 +390,8 @@ if __name__ == "__main__":
                     disk_60000_x,
                     nether_fossil_x,
                     tundra_tree_z,
+                    water,
+                    lava,
                 ),
                 (701, 701),
             )
