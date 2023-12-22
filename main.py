@@ -15,7 +15,7 @@ from numba_progress.numba_atomic import atomic_add
 
 THREADS = numba.get_num_threads()
 RESULT_COUNT = 10000
-KERNEL_SIZE = 16
+KERNEL_SIZE = 30
 
 matplotlib.use("TkAgg")
 
@@ -42,6 +42,16 @@ def next_float(seed):
     """Advance seed and generate next float32"""
     seed = next_seed(seed)
     return seed, (seed >> np.int64(24)) / np.float32(0x1000000)
+
+
+@numba.njit
+def next_int(seed, maximum):
+    """Advance seed and generate next int in range [0, maximum)"""
+    seed = next_seed(seed)
+    maximum = np.uint64(maximum)
+    if maximum & (maximum - 1):
+        return seed, (seed >> np.uint64(17)) % maximum
+    return seed, (maximum * (seed >> np.uint64(17))) >> np.uint64(31)
 
 
 @numba.njit
@@ -84,9 +94,25 @@ def test_portal(seed, direction):
 
 
 @numba.njit
-def test_nether_tree(seed, x):
-    """Test if trees in chunk 0,0 in the nether start at this X coordinate"""
+def test_decorator_80000_x(seed, x):
+    """Test if the decorator with salt near 80000 in chunk 0,0 starts at this X coordinate"""
     seed = next_seed(init(seed + np.int64(80004)))
+    x = np.int64(x)
+    return (x << np.int64(44)) <= seed < ((x + np.int64(1)) << np.int64(44))
+
+
+@numba.njit
+def test_disk_60000_x(seed, x):
+    """Test if the disk with salt near 60000 in chunk 0,0 starts at this X coordinate"""
+    seed = next_seed(init(seed + np.int64(60012)))
+    x = np.int64(x)
+    return (x << np.int64(44)) <= seed < ((x + np.int64(1)) << np.int64(44))
+
+
+@numba.njit
+def test_nether_fossil(seed, x):
+    """Test if nether fossil in chunk 0,0 starts at this X coordinate"""
+    seed = next_seed(init(seed))
     x = np.int64(x)
     return (x << np.int64(44)) <= seed < ((x + np.int64(1)) << np.int64(44))
 
@@ -135,19 +161,30 @@ def get_first_three_starts_no_biomes(seed):
 
 # technically not foolproof
 BT_NULL = -100000
-PORTAL_NULL = -1
+NULL = -1
 
 
 @numba.njit(nogil=True)
-def generate_data(count, bt_x, bt_y, portal_orientation):
+def generate_data(
+    count,
+    bt_x,
+    bt_z,
+    portal_orientation,
+    decorator_80000_x,
+    disk_60000_x,
+    nether_fossil_x,
+):
     """Generate at least ``count`` first stronghold start locations
     based on random seeds that match the buried treasure
     and/or first portal orientation"""
 
     count = np.int64(count)
     bt_x = np.int64(bt_x)
-    bt_y = np.int64(bt_y)
+    bt_z = np.int64(bt_z)
     portal_orientation = np.int64(portal_orientation)
+    decorator_80000_x = np.int64(decorator_80000_x)
+    disk_60000_x = np.int64(disk_60000_x)
+    nether_fossil_x = np.int64(nether_fossil_x)
     distribution = np.zeros(701 * 701, dtype=np.int64)
     i = np.zeros(1, np.int64)
     for _ in numba.prange(THREADS):
@@ -155,15 +192,26 @@ def generate_data(count, bt_x, bt_y, portal_orientation):
             seed = np.random.randint(-(1 << 47) + 1, 1 << 47)
             if (
                 bt_x != np.int64(BT_NULL)
-                and bt_y != np.int64(BT_NULL)
-                and not test_bt(seed, bt_x, bt_y)
+                and bt_z != np.int64(BT_NULL)
+                and not test_bt(seed, bt_x, bt_z)
             ):
                 continue
-            if portal_orientation != np.int64(PORTAL_NULL) and not test_portal(
+            if portal_orientation != np.int64(NULL) and not test_portal(
                 seed, portal_orientation
             ):
                 continue
-            # TODO: nether tree divine
+            if decorator_80000_x != np.int64(NULL) and not test_decorator_80000_x(
+                seed, decorator_80000_x
+            ):
+                continue
+            if disk_60000_x != np.int64(NULL) and not test_disk_60000_x(
+                seed, disk_60000_x
+            ):
+                continue
+            if nether_fossil_x != np.int64(NULL) and not test_nether_fossil(
+                seed, nether_fossil_x
+            ):
+                continue
             x_0, z_0, x_1, z_1, x_2, z_2 = get_first_three_starts_no_biomes(seed)
             atomic_add(distribution, ((x_0 * 2) + 350) + ((z_0 * 2) + 350) * 701, 1)
             atomic_add(distribution, ((x_1 * 2) + 350) + ((z_1 * 2) + 350) * 701, 1)
@@ -174,16 +222,8 @@ def generate_data(count, bt_x, bt_y, portal_orientation):
 
 if __name__ == "__main__":
     bt_x, bt_z = BT_NULL, BT_NULL
-    portal_orientation = PORTAL_NULL
+    portal_orientation = decorator_80000_x = disk_60000_x = nether_fossil_x = NULL
     last_clipboard = pyperclip.paste()
-    # run once to jit compile
-    # TODO: just specify argument types lol
-    generate_data(
-        RESULT_COUNT,
-        -1,
-        12,
-        0,
-    )
     size = 701 - KERNEL_SIZE
     KERNEL = np.fft.ifftshift(
         np.pad(
@@ -202,19 +242,21 @@ if __name__ == "__main__":
 
     def key_press_event(event) -> None:
         """Handle key press events on the figure window"""
-        global bt_x, bt_z, portal_orientation
+        global bt_x, bt_z, portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x
         # TODO: configuration option
         if event.key == "r":
             bt_x = bt_z = BT_NULL
-            portal_orientation = PORTAL_NULL
+            portal_orientation = (
+                nether_fossil_x
+            ) = decorator_80000_x = disk_60000_x = NULL
             plt.clf()
 
     canvas.mpl_connect("key_press_event", key_press_event)
     while True:
         scanning = True
         while scanning:
-            # update every 100 checks
-            for _ in range(100):
+            # update every 5 checks
+            for _ in range(5):
                 clipboard = pyperclip.paste()
                 if clipboard != last_clipboard and "minecraft" in clipboard:
                     scanning = False
@@ -226,13 +268,29 @@ if __name__ == "__main__":
         # f3+i
         if "setblock" in last_clipboard:
             _, x, y, z, full_block = last_clipboard.split(" ")
+            x, y, z = int(x), int(y), int(z)
             block_name, *_ = full_block.split("[")
-            bt_x, bt_z = int(x) >> 4, int(z) >> 4
-            print(f"{block_name=} {bt_x=} {bt_z=}")
+            if block_name == "minecraft:chest":
+                bt_x, bt_z = x >> 4, z >> 4
+                print(f"{block_name=} {bt_x=} {bt_z=}")
+            elif 0 <= x <= 15 and 0 <= z <= 15:
+                if block_name == "minecraft:bone_block":
+                    nether_fossil_x = x
+                    print(f"{block_name=} {nether_fossil_x=}")
+                elif block_name in (
+                    "minecraft:clay",
+                    "minecraft:gravel",
+                    "minecraft:sand",
+                ):
+                    disk_60000_x = x
+                    print(f"{block_name=} {disk_60000_x=}")
+                else:
+                    decorator_80000_x = x
+                    print(f"{block_name=} {decorator_80000_x=}")
         # first f3+c in the nether
         elif (
             "execute in minecraft:the_nether" in last_clipboard
-            and portal_orientation == PORTAL_NULL
+            and portal_orientation == NULL
         ):
             _, _, _, _, _, _, _, _, _, yaw, _ = last_clipboard.split(" ")
             yaw = float(yaw) % 360
@@ -246,16 +304,29 @@ if __name__ == "__main__":
             elif yaw <= 135:
                 portal_orientation = PortalOrientation.WEST.value
             print(f"{yaw=} {portal_orientation=}")
-        if BT_NULL not in (bt_x, bt_z) or portal_orientation != PORTAL_NULL:
+        if BT_NULL not in (bt_x, bt_z) or not all(
+            x == NULL
+            for x in (
+                portal_orientation,
+                nether_fossil_x,
+                decorator_80000_x,
+                disk_60000_x,
+            )
+        ):
+            print("Generating ....")
             raw_data = np.reshape(
                 generate_data(
                     RESULT_COUNT,
                     bt_x,
                     bt_z,
                     portal_orientation,
+                    decorator_80000_x,
+                    disk_60000_x,
+                    nether_fossil_x,
                 ),
                 (701, 701),
             )
+            print("Generated.")
 
             convoled_data = np.real(
                 np.fft.ifft2(
@@ -270,6 +341,25 @@ if __name__ == "__main__":
                 interpolation="nearest",
                 extent=[-350, 350, 350, -350],
             )
+            coords = divmod(np.argmax(convoled_data), 701)
+            coords = coords[1] - 350, coords[0] - 350
+            for ofs in range(3):
+                pt = (
+                    coords[0] * np.cos(ofs * (2 / 3 * np.pi))
+                    - coords[1] * np.sin(ofs * (2 / 3 * np.pi)),
+                    coords[1] * np.cos(ofs * (2 / 3 * np.pi))
+                    + coords[0] * np.sin(ofs * (2 / 3 * np.pi)),
+                )
+                plt.plot(
+                    *pt,
+                    marker="*",
+                    c="purple",
+                )
+                plt.annotate(
+                    f"{round(pt[0])} {round(pt[1])}",
+                    pt,
+                    c="purple",
+                )
         # update window w/o stealing focus
         plt.draw()
         plt.gcf().canvas.draw_idle()
