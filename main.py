@@ -6,6 +6,7 @@ divine calculations *heavily* based on https://github.com/mjtb49/DivineHeatmapGe
 from enum import IntEnum
 
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 import matplotlib
 import numba
 import numpy as np
@@ -353,12 +354,14 @@ if __name__ == "__main__":
                 plt.plot(
                     *pt,
                     marker="*",
-                    c="purple",
+                    c="green",
                 )
-                plt.annotate(
+                plt.text(
+                    *pt,
                     f"{round(pt[0])} {round(pt[1])}",
-                    pt,
-                    c="purple",
+                    size=12,
+                    color="black",
+                    path_effects=[pe.withStroke(linewidth=4, foreground="green")],
                 )
         # update window w/o stealing focus
         plt.draw()
