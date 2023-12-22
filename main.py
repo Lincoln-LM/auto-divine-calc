@@ -103,8 +103,11 @@ def test_decorator_80000_x(seed, x):
 
 
 @numba.njit
-def test_tundra_tree(seed, z):
-    """Test if the 0.1 probability decorator with salt near 80000 in chunk 0,0 starts at this Z coordinate"""
+def test_chance_decorator_80000(seed, z):
+    """
+    Test if the 0.1 probability decorator with salt near 80000
+    in chunk 0,0 starts at this Z coordinate"""
+    # TODO: handle 0.05 probability
     seed = init(seed + np.int64(80000))
     seed, chance_rand = next_float(seed)
     if chance_rand > np.float32(0.1):
@@ -229,7 +232,7 @@ def generate_data(
                 seed, nether_fossil_x
             ):
                 continue
-            if tundra_tree_z != np.int64(NULL) and not test_tundra_tree(
+            if tundra_tree_z != np.int64(NULL) and not test_chance_decorator_80000(
                 seed, tundra_tree_z
             ):
                 continue
@@ -297,7 +300,7 @@ if __name__ == "__main__":
                 bt_x, bt_z = x >> 4, z >> 4
                 print(f"{block_name=} {bt_x=} {bt_z=}")
             elif 0 <= x <= 15 and 0 <= z <= 15:
-                if block_name == "minecraft:spruce_log":
+                if "log" in block_name:
                     tundra_tree_z = z
                     print(f"{block_name=} {tundra_tree_z=}")
                 elif block_name == "minecraft:bone_block":
