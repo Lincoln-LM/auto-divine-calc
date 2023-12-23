@@ -95,6 +95,18 @@ def test_portal(seed, direction):
 
 
 @numba.njit
+def test_third_portal(seed, direction):
+    """Test if the third portal's orientation matches the given direction"""
+    seed = next_seed(next_seed(next_seed(init(seed))))
+    direction = np.int64(direction)
+    return (
+        (direction << np.int64(46))
+        <= seed
+        < ((direction + np.int64(1)) << np.int64(46))
+    )
+
+
+@numba.njit
 def test_decorator_80000_x(seed, x):
     """Test if the decorator with salt near 80000 in chunk 0,0 starts at this X coordinate"""
     seed = next_seed(init(seed + np.int64(80004)))
@@ -204,6 +216,7 @@ def generate_data(
     bt_x,
     bt_z,
     portal_orientation,
+    third_portal_orientation,
     decorator_80000_x,
     disk_60000_x,
     nether_fossil_x,
@@ -219,6 +232,7 @@ def generate_data(
     bt_x = np.int64(bt_x)
     bt_z = np.int64(bt_z)
     portal_orientation = np.int64(portal_orientation)
+    third_portal_orientation = np.int64(third_portal_orientation)
     decorator_80000_x = np.int64(decorator_80000_x)
     disk_60000_x = np.int64(disk_60000_x)
     nether_fossil_x = np.int64(nether_fossil_x)
@@ -236,6 +250,10 @@ def generate_data(
                 continue
             if portal_orientation != np.int64(NULL) and not test_portal(
                 seed, portal_orientation
+            ):
+                continue
+            if third_portal_orientation != np.int64(NULL) and not test_third_portal(
+                seed, third_portal_orientation
             ):
                 continue
             if decorator_80000_x != np.int64(NULL) and not test_decorator_80000_x(
@@ -269,8 +287,8 @@ def generate_data(
 if __name__ == "__main__":
     bt_x, bt_z = BT_NULL, BT_NULL
     portal_orientation = (
-        decorator_80000_x
-    ) = disk_60000_x = nether_fossil_x = tundra_tree_z = NULL
+        third_portal_orientation
+    ) = decorator_80000_x = disk_60000_x = nether_fossil_x = tundra_tree_z = NULL
     water = lava = False
     last_clipboard = pyperclip.paste()
     size = 701 - KERNEL_SIZE
@@ -293,11 +311,13 @@ if __name__ == "__main__":
 
     def key_press_event(event) -> None:
         """Handle key press events on the figure window"""
-        global bt_x, bt_z, portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x, tundra_tree_z, water, lava, scanning
+        global bt_x, bt_z, portal_orientation, third_portal_orientation, nether_fossil_x, decorator_80000_x, disk_60000_x, tundra_tree_z, water, lava, scanning
         # TODO: configuration option
         if event.key == "r":
             bt_x = bt_z = BT_NULL
             portal_orientation = (
+                third_portal_orientation
+            ) = (
                 nether_fossil_x
             ) = decorator_80000_x = disk_60000_x = tundra_tree_z = NULL
             water = lava = False
@@ -348,29 +368,31 @@ if __name__ == "__main__":
                 else:
                     decorator_80000_x = x
                     print(f"{block_name=} {decorator_80000_x=}")
-        # first f3+c in the nether
-        elif (
-            "execute in minecraft:the_nether" in last_clipboard
-            and portal_orientation == NULL
-        ):
+        # first/second f3+c in the nether
+        elif "execute in minecraft:the_nether" in last_clipboard:
             _, _, _, _, _, _, _, _, _, yaw, _ = last_clipboard.split(" ")
             yaw = float(yaw) % 360
             yaw = yaw if yaw <= 180.0 else yaw - 360
             if yaw > 135 or yaw < -135:
-                portal_orientation = PortalOrientation.NORTH.value
+                logged_portal_orientation = PortalOrientation.NORTH.value
             elif yaw <= -45:
-                portal_orientation = PortalOrientation.EAST.value
+                logged_portal_orientation = PortalOrientation.EAST.value
             elif yaw <= 45:
                 portal_orientation = PortalOrientation.SOUTH.value
             elif yaw <= 135:
-                portal_orientation = PortalOrientation.WEST.value
-            print(f"{yaw=} {portal_orientation=}")
+                logged_portal_orientation = PortalOrientation.WEST.value
+            if portal_orientation == NULL:
+                portal_orientation = logged_portal_orientation
+                print(f"{yaw=} {portal_orientation=}")
+            elif third_portal_orientation == NULL:
+                third_portal_orientation = logged_portal_orientation
         if (
             BT_NULL not in (bt_x, bt_z)
             or not all(
                 x == NULL
                 for x in (
                     portal_orientation,
+                    third_portal_orientation,
                     nether_fossil_x,
                     decorator_80000_x,
                     disk_60000_x,
@@ -386,6 +408,7 @@ if __name__ == "__main__":
                     bt_x,
                     bt_z,
                     portal_orientation,
+                    third_portal_orientation,
                     decorator_80000_x,
                     disk_60000_x,
                     nether_fossil_x,
