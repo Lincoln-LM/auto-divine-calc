@@ -380,7 +380,7 @@ if __name__ == "__main__":
             elif yaw <= -45:
                 logged_portal_orientation = PortalOrientation.EAST.value
             elif yaw <= 45:
-                portal_orientation = PortalOrientation.SOUTH.value
+                logged_portal_orientation = PortalOrientation.SOUTH.value
             elif yaw <= 135:
                 logged_portal_orientation = PortalOrientation.WEST.value
             if portal_orientation == NULL:
@@ -388,6 +388,7 @@ if __name__ == "__main__":
                 print(f"{yaw=} {portal_orientation=}")
             elif third_portal_orientation == NULL:
                 third_portal_orientation = logged_portal_orientation
+                print(f"{yaw=} {third_portal_orientation=}")
         if (
             BT_NULL not in (bt_x, bt_z)
             or not all(
