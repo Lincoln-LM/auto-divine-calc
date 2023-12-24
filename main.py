@@ -2,6 +2,8 @@
 
 import logging
 from collections import deque
+from threading import Thread
+from time import sleep
 
 import customtkinter as ctk
 import matplotlib.pyplot as plt
@@ -26,6 +28,26 @@ def validate_thread_count(value: str) -> bool:
         or value.isdigit()
         and 1 <= int(value) <= config.NUMBA_DEFAULT_NUM_THREADS
     )
+
+
+class ProgressThread(Thread):
+    """Thread to log progress of stronghold distribution generation"""
+
+    def __init__(self, parent_logger, progress, sample_count):
+        super().__init__(daemon=True)
+        self.progress = progress
+        self.logger = parent_logger.getChild("ProgressThread")
+        self.sample_count = sample_count
+
+    def run(self):
+        while self.progress[0] < self.sample_count:
+            self.logger.info(
+                "Generated %d/%d samples (%.02f%%)",
+                self.progress[0],
+                self.sample_count,
+                self.progress[0] / self.sample_count * 100,
+            )
+            sleep(0.05)
 
 
 class MainApplication(ctk.CTk):
@@ -56,6 +78,7 @@ class MainApplication(ctk.CTk):
             )
         )
         self.title("Auto Divine Calculator")
+        self.attributes("-topmost", True)
 
         self.first_sh_distribution = self.all_sh_distribution = None
 
@@ -84,8 +107,8 @@ class MainApplication(ctk.CTk):
         self.thread_count_entry.grid(row=row, column=1)
         self.thread_count_label = ctk.CTkLabel(self, text="Thread Count:")
         self.thread_count_label.grid(row=row, column=0)
-        self.divine_condition_list = ConditionList(self)
-        self.divine_condition_list.grid(row=row, column=2, rowspan=4)
+        self.divine_condition_list = ConditionList(self, command=self.draw_heatmap)
+        self.divine_condition_list.grid(row=row, column=2, rowspan=5)
 
         row += 1
         self.sample_count_label = ctk.CTkLabel(self, text="Sample Count:")
@@ -110,6 +133,15 @@ class MainApplication(ctk.CTk):
         self.fig, self.axes = plt.subplots(1, 2)
 
         row += 1
+        self.regenerated_button = ctk.CTkButton(
+            self,
+            width=300,
+            text="Regenerate Stronghold Distribution",
+            command=self.draw_heatmap,
+        )
+        self.regenerated_button.grid(row=row, column=0, columnspan=2)
+
+        row += 1
         self.canvas = FigureCanvasTkAgg(self.fig, self)
         self.canvas.get_tk_widget().grid(row=row, column=0, columnspan=2)
 
@@ -119,6 +151,9 @@ class MainApplication(ctk.CTk):
 
     def draw_heatmap(self, new_data: bool = True):
         """Draw heatmaps for the first ring of strongholds"""
+        # called too early
+        if not hasattr(self, "axes"):
+            return
         if new_data:
             sample_count, thread_count = int(self.sample_count_entry.get()), int(
                 self.thread_count_entry.get()
@@ -133,18 +168,11 @@ class MainApplication(ctk.CTk):
             )
             progress = np.zeros(1, np.uint64)
 
-            def update_progress():
-                self.logger.info(
-                    "Generated %d/%d samples (%.02f%%)",
-                    progress[0],
-                    sample_count,
-                    progress[0] / sample_count * 100,
-                )
-                if progress[0] < sample_count:
-                    self.after(100, update_progress)
-
-            update_progress()
-            (first_sh_distribution, all_sh_distribution,) = generate_data(
+            ProgressThread(self.logger, progress, sample_count).start()
+            (
+                first_sh_distribution,
+                all_sh_distribution,
+            ) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
@@ -155,70 +183,67 @@ class MainApplication(ctk.CTk):
             self.logger.info("Finished generation")
         elif self.first_sh_distribution is None:
             return
-        if hasattr(self, "axes"):
-            maximum_distance = round(self.maximum_distance_slider.get() / 8)
-            self.axes[0].clear()
-            self.axes[1].clear()
-            all_convolved_data = convolve_data(
-                self.all_sh_distribution, maximum_distance
+        maximum_distance = round(self.maximum_distance_slider.get() / 8)
+        self.axes[0].clear()
+        self.axes[1].clear()
+        all_convolved_data = convolve_data(self.all_sh_distribution, maximum_distance)
+        first_convolved_data = convolve_data(
+            self.first_sh_distribution,
+            maximum_distance,
+        )
+        self.axes[0].imshow(
+            all_convolved_data,
+            origin="upper",
+            cmap="hot",
+            interpolation="nearest",
+            extent=[-350, 350, 350, -350],
+        )
+        self.axes[1].imshow(
+            first_convolved_data,
+            origin="upper",
+            cmap="hot",
+            interpolation="nearest",
+            extent=[-350, 350, 350, -350],
+        )
+        overall_optimal_coords = divmod(np.argmax(all_convolved_data), 701)
+        overall_optimal_coords = (
+            overall_optimal_coords[1] - 350,
+            overall_optimal_coords[0] - 350,
+        )
+        display_text = (
+            "Highest Probability Coordinates:\n"
+            f"Overall: {overall_optimal_coords[0]} {overall_optimal_coords[1]} Score: {np.max(all_convolved_data)*100:.02f}%"
+        )
+        self.axes[0].plot(
+            *overall_optimal_coords,
+            marker="*",
+            c="green",
+        )
+        for quadrant, name in enumerate(("--", "-+", "+-", "++")):
+            z_start = (quadrant & 1) * 350
+            x_start = (quadrant >> 1) * 350
+            quadrant_data = all_convolved_data[
+                z_start : z_start + 350,
+                x_start : x_start + 350,
+            ]
+            quadrant_optimal_coords = divmod(
+                np.argmax(quadrant_data),
+                quadrant_data.shape[1],
             )
-            first_convolved_data = convolve_data(
-                self.first_sh_distribution,
-                maximum_distance,
+            quadrant_optimal_coords = (
+                quadrant_optimal_coords[1] - 350 + x_start,
+                quadrant_optimal_coords[0] - 350 + z_start,
             )
-            self.axes[0].imshow(
-                all_convolved_data,
-                origin="upper",
-                cmap="hot",
-                interpolation="nearest",
-                extent=[-350, 350, 350, -350],
-            )
-            self.axes[1].imshow(
-                first_convolved_data,
-                origin="upper",
-                cmap="hot",
-                interpolation="nearest",
-                extent=[-350, 350, 350, -350],
-            )
-            overall_optimal_coords = divmod(np.argmax(all_convolved_data), 701)
-            overall_optimal_coords = (
-                overall_optimal_coords[1] - 350,
-                overall_optimal_coords[0] - 350,
-            )
-            display_text = (
-                "Highest Probability Coordinates:\n"
-                f"Overall: {overall_optimal_coords[0]} {overall_optimal_coords[1]} Score: {np.max(all_convolved_data)*100:.02f}%"
-            )
+            display_text += f"\n{name}: {quadrant_optimal_coords[0]}, {quadrant_optimal_coords[1]} {np.max(quadrant_data)*100:.02f}%"
+            if quadrant_optimal_coords == overall_optimal_coords:
+                continue
             self.axes[0].plot(
-                *overall_optimal_coords,
-                marker="*",
+                *quadrant_optimal_coords,
+                marker="o",
                 c="green",
             )
-            for quadrant, name in enumerate(("--", "-+", "+-", "++")):
-                z_start = (quadrant & 1) * 350
-                x_start = (quadrant >> 1) * 350
-                quadrant_data = all_convolved_data[
-                    z_start : z_start + 350,
-                    x_start : x_start + 350,
-                ]
-                quadrant_optimal_coords = divmod(
-                    np.argmax(quadrant_data),
-                    quadrant_data.shape[1],
-                )
-                quadrant_optimal_coords = (
-                    quadrant_optimal_coords[1] - 350 + x_start,
-                    quadrant_optimal_coords[0] - 350 + z_start,
-                )
-                display_text += f"\n{name}: {quadrant_optimal_coords[0]}, {quadrant_optimal_coords[1]} {np.max(quadrant_data)*100:.02f}%"
-                if quadrant_optimal_coords == overall_optimal_coords:
-                    continue
-                self.axes[0].plot(
-                    *quadrant_optimal_coords,
-                    marker="o",
-                    c="green",
-                )
-            self.coords_display.configure(text=display_text)
-            self.canvas.draw()
+        self.coords_display.configure(text=display_text)
+        self.canvas.draw()
 
     def maximum_distance_handler(self, distance):
         """Handler to be called any time the maximum distance changes"""

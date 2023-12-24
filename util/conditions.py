@@ -30,6 +30,24 @@ def build_buried_treasure_condition(chunk_x: int, chunk_z: int) -> GenericCondit
     )
 
 
+def build_first_portal_condition(direction: int) -> GenericCondition:
+    """
+    Build a GenericCondition checking if the direction of the first portal
+    of the dimension attempts to spawn in the specified direction
+    """
+    return GenericCondition(0, 4, direction, 0.0)
+
+
+def build_third_portal_condition(direction: int) -> GenericCondition:
+    """
+    Build a GenericCondition checking if the direction of the third portal
+    of the dimension attempts to spawn in the specified direction
+    """
+    # this is hacky, third portal doesn't actually use the float rand
+    # but it consumes the same amount of calls
+    return GenericCondition(0, 4, direction, 2.0)
+
+
 numba_GenericCondition = numba.typeof(GenericCondition(0, 0, 0, 0.0))
 
 
