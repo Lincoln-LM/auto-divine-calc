@@ -70,7 +70,7 @@ class MainApplication(ctk.CTk):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger("MainApplication")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         ctk.set_appearance_mode("dark")
         self.configure_mpl_theme()
 
@@ -263,7 +263,10 @@ class MainApplication(ctk.CTk):
             progress = np.zeros(1, np.int64)
 
             ProgressThread(self.logger, progress, sample_count).start()
-            (first_sh_distribution, all_sh_distribution,) = generate_data(
+            (
+                first_sh_distribution,
+                all_sh_distribution,
+            ) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
