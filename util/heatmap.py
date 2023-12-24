@@ -53,12 +53,24 @@ def generate_data(progress, count, thread_count, divine_conditions):
     )
 
 
-def convolve_data(data, kernel_size):
-    """Convolve 2d map of data by kernel of specified size"""
+def circular_kernel(kernel_size):
+    """Build a circular kernel of the given radius"""
+
+    radius = kernel_size // 2
+
+    def within_radius(x, y):
+        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius ** 2).astype(np.float64)
+
+    return np.fromfunction(within_radius, (kernel_size, kernel_size), dtype=np.float64)
+
+
+def convolve_data(data, radius):
+    """Convolve 2d map of data by circular kernel of specified radius"""
+    kernel_size = np.round(radius * 2)
     kernel = np.fft.fft2(
         np.fft.ifftshift(
             np.pad(
-                np.ones((kernel_size, kernel_size)),
+                circular_kernel(kernel_size),
                 (
                     (((701 - kernel_size) + 1) // 2, (701 - kernel_size) // 2),
                     (((701 - kernel_size) + 1) // 2, (701 - kernel_size) // 2),

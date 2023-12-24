@@ -1,12 +1,14 @@
 """Main CTk GUI to be run"""
 
 import logging
+
 import customtkinter as ctk
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import patheffects as pe
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from numba.typed import List as TypedList
 from numba import config
+from numba.typed import List as TypedList
 from pynput import keyboard
 
 from util.clipboard import ClipboardListener
@@ -62,6 +64,7 @@ class MainApplication(ctk.CTk):
 
         self.conditions = TypedList.empty_list(numba_GenericCondition)
         self.conditions.append(build_buried_treasure_condition(12, -1))
+        self.optimal_coords = None
 
         self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
         self.clipboard_listener = ClipboardListener(on_change=self.clipboard_handler)
@@ -99,19 +102,23 @@ class MainApplication(ctk.CTk):
         self.sample_count_entry.grid(row=row, column=1)
 
         row += 1
-        self.blur_intensity_label = ctk.CTkLabel(self)
-        self.blur_intensity_label.grid(row=row, column=0)
-        self.blur_intensity_slider = ctk.CTkSlider(
-            self, from_=1, to=150, command=self.blur_intensity_handler, width=400
+        self.maximum_distance_label = ctk.CTkLabel(self)
+        self.maximum_distance_label.grid(row=row, column=0)
+        self.maximum_distance_slider = ctk.CTkSlider(
+            self, from_=1, to=2000, command=self.maximum_distance_handler, width=400
         )
-        self.blur_intensity_slider.grid(row=row, column=1)
-        self.blur_intensity_slider.set(40)
-        self.blur_intensity_handler(40)
+        self.maximum_distance_slider.grid(row=row, column=1)
+        self.maximum_distance_slider.set(500)
+        self.maximum_distance_handler(500)
         self.fig, self.axes = plt.subplots(1, 2)
-        self.canvas = FigureCanvasTkAgg(self.fig, self)
 
         row += 1
+        self.canvas = FigureCanvasTkAgg(self.fig, self)
         self.canvas.get_tk_widget().grid(row=row, column=0, columnspan=2)
+
+        row += 1
+        self.coords_display = ctk.CTkLabel(self, text="")
+        self.coords_display.grid(row=row, column=0, columnspan=2)
 
     def draw_heatmap(self, new_data: bool = True):
         """Draw heatmaps for the first ring of strongholds"""
@@ -139,42 +146,88 @@ class MainApplication(ctk.CTk):
 
             update_progress()
             (
-                self.first_sh_distribution,
-                self.all_sh_distribution,
+                first_sh_distribution,
+                all_sh_distribution,
             ) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
                 self.conditions,
             )
+            self.first_sh_distribution = first_sh_distribution / sample_count
+            self.all_sh_distribution = all_sh_distribution / sample_count
             self.logger.info("Finished generation")
         elif self.first_sh_distribution is None:
             return
         if hasattr(self, "axes"):
+            maximum_distance = round(self.maximum_distance_slider.get() / 8)
+            self.axes[0].clear()
+            self.axes[1].clear()
+            all_convolved_data = convolve_data(
+                self.all_sh_distribution, maximum_distance
+            )
+            first_convolved_data = convolve_data(
+                self.first_sh_distribution,
+                maximum_distance,
+            )
             self.axes[0].imshow(
-                convolve_data(
-                    self.all_sh_distribution, round(self.blur_intensity_slider.get())
-                ),
+                all_convolved_data,
                 origin="upper",
                 cmap="hot",
                 interpolation="nearest",
                 extent=[-350, 350, 350, -350],
             )
             self.axes[1].imshow(
-                convolve_data(
-                    self.first_sh_distribution, round(self.blur_intensity_slider.get())
-                ),
+                first_convolved_data,
                 origin="upper",
                 cmap="hot",
                 interpolation="nearest",
                 extent=[-350, 350, 350, -350],
             )
+            overall_optimal_coords = divmod(np.argmax(all_convolved_data), 701)
+            overall_optimal_coords = (
+                overall_optimal_coords[1] - 350,
+                overall_optimal_coords[0] - 350,
+            )
+            display_text = (
+                "Highest Probability Coordinates:\n"
+                f"Overall: {overall_optimal_coords[0]} {overall_optimal_coords[1]} Score: {np.max(all_convolved_data)*100:.02f}%"
+            )
+            self.axes[0].plot(
+                *overall_optimal_coords,
+                marker="*",
+                c="green",
+            )
+            for quadrant, name in enumerate(("--", "-+", "+-", "++")):
+                z_start = (quadrant & 1) * 350
+                x_start = (quadrant >> 1) * 350
+                quadrant_data = all_convolved_data[
+                    z_start : z_start + 350,
+                    x_start : x_start + 350,
+                ]
+                quadrant_optimal_coords = divmod(
+                    np.argmax(quadrant_data),
+                    quadrant_data.shape[1],
+                )
+                quadrant_optimal_coords = (
+                    quadrant_optimal_coords[1] - 350 + x_start,
+                    quadrant_optimal_coords[0] - 350 + z_start,
+                )
+                display_text += f"\n{name}: {quadrant_optimal_coords[0]}, {quadrant_optimal_coords[1]} {np.max(quadrant_data)*100:.02f}%"
+                if quadrant_optimal_coords == overall_optimal_coords:
+                    continue
+                self.axes[0].plot(
+                    *quadrant_optimal_coords,
+                    marker="o",
+                    c="green",
+                )
+            self.coords_display.configure(text=display_text)
             self.canvas.draw()
 
-    def blur_intensity_handler(self, intensity):
-        """Handler to be called any time the blur intensity changes"""
-        intensity = round(intensity)
-        self.blur_intensity_label.configure(text=f"Blur Intensity: {intensity}")
+    def maximum_distance_handler(self, distance):
+        """Handler to be called any time the maximum distance changes"""
+        distance = round(distance)
+        self.maximum_distance_label.configure(text=f"Distance: {distance}")
         self.draw_heatmap(new_data=False)
 
     def keypress_handler(self, key):
