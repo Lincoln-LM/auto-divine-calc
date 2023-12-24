@@ -216,7 +216,7 @@ class ConditionWidget(ctk.CTkFrame):
         self.salt_entry = ctk.CTkEntry(
             self,
             validate="all",
-            validatecommand=(self.register(str.isdigit), "%P"),
+            validatecommand=(self.register(lambda v: v[1:].isdigit() if v[0] == "-" else v.isdigit()), "%P"),
         )
         self.salt_entry.insert(0, str(condition.salt))
         if display_salt:
