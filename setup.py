@@ -1,10 +1,10 @@
 import pkgutil
 import sys
-from contextlib import suppress
+import os
 
-with suppress(ImportError):
-    import pynput.keyboard
-    import pynput.mouse
+os.environ["DISPLAY"] = ":0"
+import pynput.keyboard
+import pynput.mouse
 from cx_Freeze import Executable, setup
 
 includes = [
