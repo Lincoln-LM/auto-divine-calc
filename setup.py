@@ -1,8 +1,6 @@
 import pkgutil
 import sys
-import os
 
-os.environ["DISPLAY"] = ":0"
 import pynput.keyboard
 import pynput.mouse
 from cx_Freeze import Executable, setup

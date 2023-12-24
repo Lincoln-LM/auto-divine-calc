@@ -32,7 +32,7 @@ jobs:
           pip install cx_freeze
       - name: Freeze
         run: |
-          python setup.py build
+          sudo python setup.py build
       - name: Upload Full Artifact
         if: ${{ matrix.upload_lib }}
         uses: actions/upload-artifact@v4
