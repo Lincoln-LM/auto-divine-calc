@@ -7,9 +7,143 @@ import customtkinter as ctk
 from .conditions import (
     GenericCondition,
     build_buried_treasure_condition,
-    build_first_portal_condition,
-    build_third_portal_condition,
 )
+
+
+class NetherFossilDialog(ctk.CTkInputDialog):
+    """Input dialog for entering the X coordinate of a 0,0 nether fossil"""
+
+    def __init__(self, condition_list, *args, **kwargs):
+        super().__init__(
+            *args,
+            title="Nether Fossil",
+            text="Enter the X coordinate of the nether fossil",
+            **kwargs,
+        )
+        self.condition_list = condition_list
+        self.get_input()
+
+    def get_input(self):
+        try:
+            value = int(super().get_input())
+            self.condition_list.add_condition(
+                GenericCondition(0, 16, value, 0.0),
+                name=f"Nether Fossil X {value}",
+                display_salt=False,
+                display_int_rand=False,
+                display_float_rand=False,
+            )
+        except ValueError:
+            pass
+
+
+class DecoratorDialog(ctk.CTkInputDialog):
+    """Input dialog for entering the X coordinate of a 0,0 80k decorator"""
+
+    def __init__(self, condition_list, *args, **kwargs):
+        super().__init__(
+            *args,
+            title="80000 Decorator",
+            text="Enter the X coordinate of the decorator",
+            **kwargs,
+        )
+        self.condition_list = condition_list
+        self.get_input()
+
+    def get_input(self):
+        try:
+            value = int(super().get_input())
+            self.condition_list.add_condition(
+                GenericCondition(80000, 16, value, 0.0),
+                name=f"80k Decorator X {value}",
+                display_salt=False,
+                display_int_rand=False,
+                display_float_rand=False,
+            )
+        except ValueError:
+            pass
+
+
+class DiskDialog(ctk.CTkInputDialog):
+    """Input dialog for entering the X coordinate of a 0,0 60k disk"""
+
+    def __init__(self, condition_list, *args, **kwargs):
+        super().__init__(
+            *args,
+            title="60000 Disk",
+            text="Enter the X coordinate of the disk",
+            **kwargs,
+        )
+        self.condition_list = condition_list
+        self.get_input()
+
+    def get_input(self):
+        try:
+            value = int(super().get_input())
+            self.condition_list.add_condition(
+                GenericCondition(60000, 16, value, 0.0),
+                name=f"60k Disk Decorator X {value}",
+                display_salt=False,
+                display_int_rand=False,
+                display_float_rand=False,
+            )
+        except ValueError:
+            pass
+
+
+class ChanceDecoratorDialog(ctk.CTkInputDialog):
+    """Input dialog for entering the Z coordinate of a 0,0 10% 80k chance decorator"""
+
+    def __init__(self, condition_list, *args, **kwargs):
+        super().__init__(
+            *args,
+            title="10% 80k Chance Decorator",
+            text="Enter the Z coordinate of the decorator",
+            **kwargs,
+        )
+        self.condition_list = condition_list
+        self.get_input()
+
+    def get_input(self):
+        try:
+            value = int(super().get_input())
+            self.condition_list.add_condition(
+                GenericCondition(80000, 16, value, 0.1),
+                name=f"10% 80k Decorator Z {value}",
+                display_salt=False,
+                display_int_rand=False,
+                display_float_rand=False,
+            )
+        except ValueError:
+            pass
+
+
+class BuriedTreasureDialog(ctk.CTkInputDialog):
+    """Input dialog for entering buried treasure coordinates"""
+
+    def __init__(self, condition_list, *args, **kwargs):
+        super().__init__(
+            *args,
+            title="Buried Treasure",
+            text="Enter the chunk coordinates of the buried treasure seperated by a space",
+            **kwargs,
+        )
+        self.condition_list = condition_list
+        self.get_input()
+
+    def get_input(self):
+        try:
+            value = super().get_input()
+            chunk_x, chunk_z = tuple(int(c) for c in value.split(" "))
+            self.condition_list.add_condition(
+                build_buried_treasure_condition(chunk_x, chunk_z),
+                name=f"Buried Treasure {chunk_x},{chunk_z}",
+                display_salt=False,
+                display_int_rand=False,
+                display_float_rand=False,
+            )
+        except ValueError:
+            pass
 
 
 class ConditionList(ctk.CTkScrollableFrame):
@@ -27,39 +161,6 @@ class ConditionList(ctk.CTkScrollableFrame):
             command=lambda *_: self.add_condition(GenericCondition(0, 0, 0, 0.0)),
         )
         self.add_condition_button.pack(side="bottom")
-        self.add_buried_treasure_condition(12, -1)
-        self.add_first_portal_condition(1)
-        self.add_third_portal_condition(1)
-
-    def add_buried_treasure_condition(self, chunk_x, chunk_z):
-        """Add a buried treasure condition based on chunk coordinates"""
-        self.add_condition(
-            build_buried_treasure_condition(chunk_x, chunk_z),
-            name=f"Buried Treasure {chunk_x},{chunk_z}",
-            display_int_rand=False,
-        )
-
-    def add_first_portal_condition(self, direction):
-        """Add a first portal condition based on cardinal direction"""
-        directions = ("East", "North", "West", "South")
-        self.add_condition(
-            build_first_portal_condition(direction),
-            name=f"First Portal {directions[direction]}",
-            display_float_rand=False,
-            display_int_rand=False,
-            display_salt=False,
-        )
-
-    def add_third_portal_condition(self, direction):
-        """Add a third portal condition based on cardinal direction"""
-        directions = ("East", "North", "West", "South")
-        self.add_condition(
-            build_third_portal_condition(direction),
-            name=f"Third Portal {directions[direction]}",
-            display_float_rand=False,
-            display_int_rand=False,
-            display_salt=False,
-        )
 
     def add_condition(self, condition, **kwargs):
         """Add a condition to the list and create a widget for it"""

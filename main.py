@@ -4,6 +4,8 @@ import logging
 from collections import deque
 from threading import Thread
 from time import sleep
+from tkinter import Menu
+from functools import partial
 
 import customtkinter as ctk
 import matplotlib.pyplot as plt
@@ -14,8 +16,20 @@ from numba.typed import List as TypedList
 from pynput import keyboard
 
 from util.clipboard import ClipboardListener
-from util.condition_widget import ConditionList
-from util.conditions import numba_GenericCondition
+from util.condition_widget import (
+    ConditionList,
+    BuriedTreasureDialog,
+    ChanceDecoratorDialog,
+    DiskDialog,
+    DecoratorDialog,
+    NetherFossilDialog,
+)
+from util.conditions import (
+    numba_GenericCondition,
+    GenericCondition,
+    build_first_portal_condition,
+    build_third_portal_condition,
+)
 from util.heatmap import convolve_data, generate_data
 
 logging.basicConfig()
@@ -40,7 +54,7 @@ class ProgressThread(Thread):
         self.sample_count = sample_count
 
     def run(self):
-        while self.progress[0] < self.sample_count:
+        while 0 <= self.progress[0] < self.sample_count:
             self.logger.info(
                 "Generated %d/%d samples (%.02f%%)",
                 self.progress[0],
@@ -58,6 +72,25 @@ class MainApplication(ctk.CTk):
         self.logger = logging.getLogger("MainApplication")
         self.logger.setLevel(logging.DEBUG)
         ctk.set_appearance_mode("dark")
+        self.configure_mpl_theme()
+
+        self.title("Auto Divine Calculator")
+        self.attributes("-topmost", True)
+
+        self.first_sh_distribution = self.all_sh_distribution = None
+
+        self.optimal_coords = None
+
+        self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
+        self.clipboard_listener = ClipboardListener(on_change=self.clipboard_handler)
+
+        self.keypress_listener.start()
+        self.clipboard_listener.start()
+
+        self.place_widgets()
+
+    def configure_mpl_theme(self):
+        """Set the default colors of the embedded plots"""
         # TODO: this is ugly
         plt.rcParams["axes.facecolor"] = plt.rcParams["figure.facecolor"] = tuple(
             c / 65535
@@ -77,20 +110,6 @@ class MainApplication(ctk.CTk):
                 ]
             )
         )
-        self.title("Auto Divine Calculator")
-        self.attributes("-topmost", True)
-
-        self.first_sh_distribution = self.all_sh_distribution = None
-
-        self.optimal_coords = None
-
-        self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
-        self.clipboard_listener = ClipboardListener(on_change=self.clipboard_handler)
-
-        self.keypress_listener.start()
-        self.clipboard_listener.start()
-
-        self.place_widgets()
 
     def place_widgets(self):
         """Place CTk widgets on the window"""
@@ -109,6 +128,8 @@ class MainApplication(ctk.CTk):
         self.thread_count_label.grid(row=row, column=0)
         self.divine_condition_list = ConditionList(self, command=self.draw_heatmap)
         self.divine_condition_list.grid(row=row, column=2, rowspan=5)
+
+        self.configure_menubar()
 
         row += 1
         self.sample_count_label = ctk.CTkLabel(self, text="Sample Count:")
@@ -149,6 +170,79 @@ class MainApplication(ctk.CTk):
         self.coords_display = ctk.CTkLabel(self, text="")
         self.coords_display.grid(row=row, column=0, columnspan=2)
 
+    def configure_menubar(self):
+        """Build and configure the menubar at the top of the window"""
+
+        menubar = Menu(self)
+
+        portal_menu = Menu(self, tearoff=0)
+        first_portal_menu = Menu(self, tearoff=0)
+        third_portal_menu = Menu(self, tearoff=0)
+        for i, direction in enumerate(("East", "North", "West", "South")):
+            first_portal_menu.add_command(
+                label=direction,
+                command=partial(
+                    self.divine_condition_list.add_condition,
+                    build_first_portal_condition(i),
+                    name=f"First Portal {direction}",
+                    display_float_rand=False,
+                    display_int_rand=False,
+                    display_salt=False,
+                ),
+            )
+            third_portal_menu.add_command(
+                label=direction,
+                command=partial(
+                    self.divine_condition_list.add_condition,
+                    build_third_portal_condition(i),
+                    name=f"Third Portal {direction}",
+                    display_float_rand=False,
+                    display_int_rand=False,
+                    display_salt=False,
+                ),
+            )
+
+        portal_menu.add_cascade(label="First Portal", menu=first_portal_menu)
+        portal_menu.add_cascade(label="Third Portal", menu=third_portal_menu)
+
+        zero_zero_menu = Menu(self, tearoff=0)
+        zero_zero_menu.add_command(
+            label="Water Pool",
+            command=lambda: self.divine_condition_list.add_condition(
+                GenericCondition(10000, 0, 0, 0.25)
+            ),
+        )
+        zero_zero_menu.add_command(
+            label="Lava Pool",
+            command=lambda: self.divine_condition_list.add_condition(
+                GenericCondition(10000, 0, 0, 0.125)
+            ),
+        )
+        zero_zero_menu.add_command(
+            label="Nether Fossil (X)",
+            command=lambda: NetherFossilDialog(self.divine_condition_list),
+        )
+        zero_zero_menu.add_command(
+            label="80k Chance Decorator (Z)",
+            command=lambda: ChanceDecoratorDialog(self.divine_condition_list),
+        )
+        zero_zero_menu.add_command(
+            label="80k Decorator (X)",
+            command=lambda: DecoratorDialog(self.divine_condition_list),
+        )
+        zero_zero_menu.add_command(
+            label="60k Disk Decorator (X)",
+            command=lambda: DiskDialog(self.divine_condition_list),
+        )
+
+        menubar.add_cascade(label="Portal Orientation", menu=portal_menu)
+        menubar.add_cascade(label="Chunk 0,0", menu=zero_zero_menu)
+        menubar.add_command(
+            label="Buried Treasure",
+            command=lambda: BuriedTreasureDialog(self.divine_condition_list),
+        )
+        self.configure(menu=menubar)
+
     def draw_heatmap(self, new_data: bool = True):
         """Draw heatmaps for the first ring of strongholds"""
         # called too early
@@ -166,7 +260,7 @@ class MainApplication(ctk.CTk):
                 thread_count,
                 len(conditions),
             )
-            progress = np.zeros(1, np.uint64)
+            progress = np.zeros(1, np.int64)
 
             ProgressThread(self.logger, progress, sample_count).start()
             (
