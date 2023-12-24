@@ -1,8 +1,10 @@
 import pkgutil
 import sys
+from contextlib import suppress
 
-import pynput.keyboard
-import pynput.mouse
+with suppress(ImportError):
+    import pynput.keyboard
+    import pynput.mouse
 from cx_Freeze import Executable, setup
 
 includes = [
