@@ -1,22 +1,19 @@
 """Main CTk GUI to be run"""
 
 import logging
+from collections import deque
 
 import customtkinter as ctk
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import patheffects as pe
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from numba import config
 from numba.typed import List as TypedList
 from pynput import keyboard
 
 from util.clipboard import ClipboardListener
-from util.conditions import (
-    GenericCondition,
-    build_buried_treasure_condition,
-    numba_GenericCondition,
-)
+from util.condition_widget import ConditionList
+from util.conditions import numba_GenericCondition
 from util.heatmap import convolve_data, generate_data
 
 logging.basicConfig()
@@ -62,8 +59,6 @@ class MainApplication(ctk.CTk):
 
         self.first_sh_distribution = self.all_sh_distribution = None
 
-        self.conditions = TypedList.empty_list(numba_GenericCondition)
-        self.conditions.append(build_buried_treasure_condition(12, -1))
         self.optimal_coords = None
 
         self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
@@ -89,6 +84,8 @@ class MainApplication(ctk.CTk):
         self.thread_count_entry.grid(row=row, column=1)
         self.thread_count_label = ctk.CTkLabel(self, text="Thread Count:")
         self.thread_count_label.grid(row=row, column=0)
+        self.divine_condition_list = ConditionList(self)
+        self.divine_condition_list.grid(row=row, column=2, rowspan=4)
 
         row += 1
         self.sample_count_label = ctk.CTkLabel(self, text="Sample Count:")
@@ -126,11 +123,13 @@ class MainApplication(ctk.CTk):
             sample_count, thread_count = int(self.sample_count_entry.get()), int(
                 self.thread_count_entry.get()
             )
+            conditions = TypedList.empty_list(numba_GenericCondition)
+            deque(map(conditions.append, self.divine_condition_list.conditions), 0)
             self.logger.info(
                 "Generating %d samples on %d threads with %d conditions",
                 sample_count,
                 thread_count,
-                len(self.conditions),
+                len(conditions),
             )
             progress = np.zeros(1, np.uint64)
 
@@ -145,14 +144,11 @@ class MainApplication(ctk.CTk):
                     self.after(100, update_progress)
 
             update_progress()
-            (
-                first_sh_distribution,
-                all_sh_distribution,
-            ) = generate_data(
+            (first_sh_distribution, all_sh_distribution,) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
-                self.conditions,
+                conditions,
             )
             self.first_sh_distribution = first_sh_distribution / sample_count
             self.all_sh_distribution = all_sh_distribution / sample_count

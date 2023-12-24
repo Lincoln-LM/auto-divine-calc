@@ -61,7 +61,8 @@ def test_float_int_pair_rand(seed, salt, float_maximum, int_maximum, int_value):
     """
     Test if the first random float [0, 1.0)
     of a generator with the provided salt results in a value under the provided maximum
-    *and* the second random int [0, int_maximum) results in the provided value"""
+    *and* the second random int [0, int_maximum) results in the provided value
+    """
     seed, chance_rand = java_random.next_float(java_random.init(seed + salt))
     if chance_rand > float_maximum:
         return False
