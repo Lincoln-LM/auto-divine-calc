@@ -19,17 +19,17 @@ def generate_data(progress, count, thread_count, divine_conditions):
     first_stronghold_locations = np.zeros(701 * 701, dtype=np.uint64)
     all_stronghold_locations = np.zeros(701 * 701, dtype=np.uint64)
     for _ in numba.prange(thread_count):
-        tested_count = np.uint64(0)
-        while atomic_add(progress, 0, 0) < count:
+        tested_count = np.zeros(1, dtype=np.uint64)
+        while 0 <= atomic_add(progress, 0, 0) < count:
             seed = np.random.randint(-(1 << 47) + 1, 1 << 47)
             strongholds = stronghold.gen_first_ring_strongholds(seed)
-            tested_count += 1
+            atomic_add(tested_count, 0, 1)
             # assume impossible
-            if tested_count > 100000 and atomic_add(progress, 0, 0) == 0:
+            if (
+                atomic_add(tested_count, 0, 0) > 100000
+                and atomic_add(progress, 0, 0) == 0
+            ):
                 atomic_add(progress, 0, -1)
-                return np.reshape(first_stronghold_locations, (701, 701)), np.reshape(
-                    all_stronghold_locations, (701, 701)
-                )
 
             if not conditions.test_all_conditions(seed, divine_conditions):
                 continue

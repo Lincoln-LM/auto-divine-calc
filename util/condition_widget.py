@@ -22,14 +22,7 @@ class NetherFossilDialog(ctk.CTkInputDialog):
 
     def get_input(self):
         try:
-            value = int(super().get_input())
-            self.condition_list.add_condition(
-                GenericCondition(0, 16, value, 0.0),
-                name=f"Nether Fossil X {value}",
-                display_salt=False,
-                display_int_rand=False,
-                display_float_rand=False,
-            )
+            self.condition_list.add_nether_fossil_condition(int(super().get_input()))
         except ValueError:
             pass
 
@@ -49,14 +42,7 @@ class DecoratorDialog(ctk.CTkInputDialog):
 
     def get_input(self):
         try:
-            value = int(super().get_input())
-            self.condition_list.add_condition(
-                GenericCondition(80000, 16, value, 0.0),
-                name=f"80k Decorator X {value}",
-                display_salt=False,
-                display_int_rand=False,
-                display_float_rand=False,
-            )
+            self.condition_list.add_decorator_condition(int(super().get_input()))
         except ValueError:
             pass
 
@@ -76,14 +62,7 @@ class DiskDialog(ctk.CTkInputDialog):
 
     def get_input(self):
         try:
-            value = int(super().get_input())
-            self.condition_list.add_condition(
-                GenericCondition(60000, 16, value, 0.0),
-                name=f"60k Disk Decorator X {value}",
-                display_salt=False,
-                display_int_rand=False,
-                display_float_rand=False,
-            )
+            self.condition_list.add_disk_decorator_condition(int(super().get_input()))
         except ValueError:
             pass
 
@@ -103,14 +82,7 @@ class ChanceDecoratorDialog(ctk.CTkInputDialog):
 
     def get_input(self):
         try:
-            value = int(super().get_input())
-            self.condition_list.add_condition(
-                GenericCondition(80000, 16, value, 0.1),
-                name=f"10% 80k Decorator Z {value}",
-                display_salt=False,
-                display_int_rand=False,
-                display_float_rand=False,
-            )
+            self.condition_list.add_chance_decorator_condition(int(super().get_input()))
         except ValueError:
             pass
 
@@ -132,13 +104,7 @@ class BuriedTreasureDialog(ctk.CTkInputDialog):
         try:
             value = super().get_input()
             chunk_x, chunk_z = tuple(int(c) for c in value.split(" "))
-            self.condition_list.add_condition(
-                build_buried_treasure_condition(chunk_x, chunk_z),
-                name=f"Buried Treasure {chunk_x},{chunk_z}",
-                display_salt=False,
-                display_int_rand=False,
-                display_float_rand=False,
-            )
+            self.condition_list.add_buried_treasure_condition(chunk_x, chunk_z)
         except (ValueError, AttributeError):
             pass
 
@@ -158,6 +124,51 @@ class ConditionList(ctk.CTkScrollableFrame):
             command=lambda *_: self.add_condition(GenericCondition(0, 0, 0, 0.0)),
         )
         self.add_condition_button.pack(side="bottom")
+
+    def add_nether_fossil_condition(self, x):
+        self.add_condition(
+            GenericCondition(0, 16, x, 0.0),
+            name=f"Nether Fossil X {x}",
+            display_salt=False,
+            display_int_rand=False,
+            display_float_rand=False,
+        )
+
+    def add_decorator_condition(self, x):
+        self.add_condition(
+            GenericCondition(80000, 16, x, 0.0),
+            name=f"80k Decorator X {x}",
+            display_salt=False,
+            display_int_rand=False,
+            display_float_rand=False,
+        )
+
+    def add_disk_decorator_condition(self, x):
+        self.add_condition(
+            GenericCondition(60000, 16, x, 0.0),
+            name=f"60k Disk Decorator X {x}",
+            display_salt=False,
+            display_int_rand=False,
+            display_float_rand=False,
+        )
+
+    def add_chance_decorator_condition(self, z):
+        self.add_condition(
+            GenericCondition(80000, 16, z, 0.1),
+            name=f"10% 80k Decorator Z {z}",
+            display_salt=False,
+            display_int_rand=False,
+            display_float_rand=False,
+        )
+
+    def add_buried_treasure_condition(self, chunk_x, chunk_z):
+        self.add_condition(
+            build_buried_treasure_condition(chunk_x, chunk_z),
+            name=f"Buried Treasure {chunk_x},{chunk_z}",
+            display_salt=False,
+            display_int_rand=False,
+            display_float_rand=False,
+        )
 
     def add_condition(self, condition, **kwargs):
         """Add a condition to the list and create a widget for it"""

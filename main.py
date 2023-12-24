@@ -263,10 +263,7 @@ class MainApplication(ctk.CTk):
             progress = np.zeros(1, np.int64)
 
             ProgressThread(self.logger, progress, sample_count).start()
-            (
-                first_sh_distribution,
-                all_sh_distribution,
-            ) = generate_data(
+            (first_sh_distribution, all_sh_distribution,) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
@@ -351,8 +348,71 @@ class MainApplication(ctk.CTk):
 
     def clipboard_handler(self, clipboard):
         """Handler to be called every time the clipboard contents change"""
-        # TODO: f3i/f3c handling
         self.logger.debug("New clipboard: %r", clipboard)
+        # f3+i
+        if clipboard.startswith("/setblock"):
+            self.logger.info("f3+i detected, %r", clipboard)
+            _, x, _, z, full_block = clipboard.split(" ")
+            x, z = int(x), int(z)
+            block_name, *_ = full_block.split("[")
+            if block_name == "minecraft:chest":
+                self.logger.info(
+                    "Buried treasure logged chunk_x=%d, chunk_z=%d", x >> 4, z >> 4
+                )
+                self.divine_condition_list.add_buried_treasure_condition(x >> 4, z >> 4)
+            elif 0 <= x <= 15 and 0 <= z <= 15:
+                if "log" in block_name:
+                    self.logger.info("10%% 80k decorator logged z=%d", z)
+                    self.divine_condition_list.add_chance_decorator_condition(z)
+                elif block_name in (
+                    "minecraft:bone_block",
+                    "minecraft:soul_sand",
+                    "minecraft:soul_soil",
+                ):
+                    self.logger.info("Nether fossil logged x=%d", x)
+                    self.divine_condition_list.add_nether_fossil_condition(x)
+                elif block_name in (
+                    "minecraft:clay",
+                    "minecraft:gravel",
+                    "minecraft:sand",
+                ):
+                    self.logger.info("60k %s disk logged x=%d", block_name, x)
+                    self.divine_condition_list.add_disk_decorator_condition(x)
+                else:
+                    self.logger.info("80k decorator logged %d", x)
+                    self.divine_condition_list.add_decorator_condition(x)
+        elif clipboard.startswith("/execute"):
+            _, _, _, _, _, _, _, _, _, yaw, _ = clipboard.split(" ")
+            yaw = float(yaw) % 360
+            yaw = yaw if yaw <= 180.0 else yaw - 360
+            if yaw > 135 or yaw < -135:
+                portal_orientation = 1
+            elif yaw <= -45:
+                portal_orientation = 0
+            elif yaw <= 45:
+                portal_orientation = 3
+            elif yaw <= 135:
+                portal_orientation = 2
+            first_portal_logged = False
+            # check all conditions for a rand(4) and assume its portal orientation
+            for condition in self.divine_condition_list.conditions:
+                if condition.int_maximum == 4:
+                    first_portal_logged = True
+                    break
+            if not first_portal_logged:
+                self.logger.info(
+                    "First Portal orientation logged %d", portal_orientation
+                )
+                self.divine_condition_list.add_condition(
+                    build_first_portal_condition(portal_orientation)
+                )
+            else:
+                self.logger.info(
+                    "Third Portal orientation logged %d", portal_orientation
+                )
+                self.divine_condition_list.add_condition(
+                    build_third_portal_condition(portal_orientation)
+                )
 
 
 if __name__ == "__main__":
