@@ -1,10 +1,36 @@
 """Divine conditions to be checked during seed testing"""
 
 
+from typing import NamedTuple
+
 import numba
 import numpy as np
 
 from . import java_random
+
+
+class GenericCondition(NamedTuple):
+    """Generic rng condition to be checked"""
+
+    salt: np.int64
+    int_maximum: np.int64
+    int_value: np.int64
+    float_maximum: np.float64
+
+
+def build_buried_treasure_condition(chunk_x: int, chunk_z: int) -> GenericCondition:
+    """Build a GenericCondition checking if a buried treasure can spawn at the provided chunk"""
+    return GenericCondition(
+        np.int64(chunk_x) * np.int64(341873128712)
+        + np.int64(chunk_z) * np.int64(132897987541)
+        + np.int64(10387320),
+        0,
+        0,
+        0.01,
+    )
+
+
+numba_GenericCondition = numba.typeof(GenericCondition(0, 0, 0, 0.0))
 
 
 def njit_condition(*args, **kwargs):
@@ -30,7 +56,7 @@ def test_float_rand(seed, salt, maximum):
     return java_random.next_float(java_random.init(seed + salt))[1] < maximum
 
 
-@njit_condition(numba.int64, numba.float32, numba.int64, numba.int64):
+@njit_condition(numba.int64, numba.float32, numba.int64, numba.int64)
 def test_float_int_pair_rand(seed, salt, float_maximum, int_maximum, int_value):
     """
     Test if the first random float [0, 1.0)
@@ -40,9 +66,29 @@ def test_float_int_pair_rand(seed, salt, float_maximum, int_maximum, int_value):
     if chance_rand > float_maximum:
         return False
     seed = java_random.next_seed(seed)
-    return java_random.next_int(seed, int_maximum) == int_value
+    return java_random.next_int(seed, int_maximum)[1] == int_value
 
-@njit_condition(numba.types.List(numba.types.Tuple((numba.int64, numba.float32))))
+
+@njit_condition(numba.types.ListType(numba_GenericCondition))
+def test_all_conditions(seed, conditions):
+    """Test a list of GenericConditions sequentially"""
+    for condition in conditions:
+        if condition[1] != 0:
+            if condition[3] != 0.0:
+                if not test_float_int_pair_rand(
+                    seed, condition[0], condition[3], condition[1], condition[2]
+                ):
+                    return False
+            else:
+                if not test_int_rand(seed, condition[0], condition[1], condition[2]):
+                    return False
+        else:
+            if not test_float_rand(seed, condition[0], condition[3]):
+                return False
+    return True
+
+
+@njit_condition(numba.types.ListType(numba.types.Tuple((numba.int64, numba.float32))))
 def test_floats(seed, pairs):
     """Test a list of (salt, maximum) pairs sequentially"""
     for salt, maximum in pairs:
@@ -52,7 +98,7 @@ def test_floats(seed, pairs):
 
 
 @njit_condition(
-    numba.types.List(numba.types.Tuple((numba.int64, numba.int64, numba.int64)))
+    numba.types.ListType(numba.types.Tuple((numba.int64, numba.int64, numba.int64)))
 )
 def test_ints(seed, pairs):
     """Test a list of (salt, maximum, value) pairs sequentially"""

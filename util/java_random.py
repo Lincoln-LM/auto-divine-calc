@@ -4,7 +4,6 @@
 import numba
 import numpy as np
 
-
 MULT = np.int64(0x5DEECE66D)
 ADD = np.int64(0xB)
 MASK = np.int64(0xFFFFFFFFFFFF)
