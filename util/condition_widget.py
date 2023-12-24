@@ -139,7 +139,7 @@ class BuriedTreasureDialog(ctk.CTkInputDialog):
                 display_int_rand=False,
                 display_float_rand=False,
             )
-        except ValueError:
+        except (ValueError, AttributeError):
             pass
 
 
