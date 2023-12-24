@@ -402,19 +402,24 @@ class MainApplication(ctk.CTk):
                 if condition.int_maximum == 4:
                     first_portal_logged = True
                     break
+            direction = ("East", "North", "West", "South")[portal_orientation]
             if not first_portal_logged:
-                self.logger.info(
-                    "First Portal orientation logged %d", portal_orientation
-                )
+                self.logger.info("First Portal orientation logged %s", direction)
                 self.divine_condition_list.add_condition(
-                    build_first_portal_condition(portal_orientation)
+                    build_first_portal_condition(portal_orientation),
+                    name=f"First Portal {direction}",
+                    display_float_rand=False,
+                    display_int_rand=False,
+                    display_salt=False,
                 )
             else:
-                self.logger.info(
-                    "Third Portal orientation logged %d", portal_orientation
-                )
+                self.logger.info("Third Portal orientation logged %s", direction)
                 self.divine_condition_list.add_condition(
-                    build_third_portal_condition(portal_orientation)
+                    build_third_portal_condition(portal_orientation),
+                    name=f"Third Portal {direction}",
+                    display_float_rand=False,
+                    display_int_rand=False,
+                    display_salt=False,
                 )
 
 
