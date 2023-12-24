@@ -263,7 +263,10 @@ class MainApplication(ctk.CTk):
             progress = np.zeros(1, np.int64)
 
             ProgressThread(self.logger, progress, sample_count).start()
-            (first_sh_distribution, all_sh_distribution,) = generate_data(
+            (
+                first_sh_distribution,
+                all_sh_distribution,
+            ) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
@@ -345,8 +348,6 @@ class MainApplication(ctk.CTk):
     def keypress_handler(self, key):
         """Handler to be called on every new keypress"""
         self.logger.debug("%r pressed", key)
-        if key == keyboard.KeyCode.from_char("-"):
-            self.draw_heatmap()
 
     def clipboard_handler(self, clipboard):
         """Handler to be called every time the clipboard contents change"""
