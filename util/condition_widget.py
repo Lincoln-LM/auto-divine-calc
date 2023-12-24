@@ -4,10 +4,7 @@ from typing import Iterable
 
 import customtkinter as ctk
 
-from .conditions import (
-    GenericCondition,
-    build_buried_treasure_condition,
-)
+from .conditions import GenericCondition, build_buried_treasure_condition
 
 
 class NetherFossilDialog(ctk.CTkInputDialog):

@@ -67,7 +67,7 @@ def circular_kernel(kernel_size):
     radius = kernel_size // 2
 
     def within_radius(x, y):
-        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius**2).astype(np.float64)
+        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius ** 2).astype(np.float64)
 
     return np.fromfunction(within_radius, (kernel_size, kernel_size), dtype=np.float64)
 

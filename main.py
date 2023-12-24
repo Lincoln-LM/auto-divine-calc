@@ -2,10 +2,10 @@
 
 import logging
 from collections import deque
+from functools import partial
 from threading import Thread
 from time import sleep
 from tkinter import Menu
-from functools import partial
 
 import customtkinter as ctk
 import matplotlib.pyplot as plt
@@ -17,18 +17,18 @@ from pynput import keyboard
 
 from util.clipboard import ClipboardListener
 from util.condition_widget import (
-    ConditionList,
     BuriedTreasureDialog,
     ChanceDecoratorDialog,
-    DiskDialog,
+    ConditionList,
     DecoratorDialog,
+    DiskDialog,
     NetherFossilDialog,
 )
 from util.conditions import (
-    numba_GenericCondition,
     GenericCondition,
     build_first_portal_condition,
     build_third_portal_condition,
+    numba_GenericCondition,
 )
 from util.heatmap import convolve_data, generate_data
 
@@ -263,10 +263,7 @@ class MainApplication(ctk.CTk):
             progress = np.zeros(1, np.int64)
 
             ProgressThread(self.logger, progress, sample_count).start()
-            (
-                first_sh_distribution,
-                all_sh_distribution,
-            ) = generate_data(
+            (first_sh_distribution, all_sh_distribution,) = generate_data(
                 progress,
                 sample_count,
                 thread_count,
