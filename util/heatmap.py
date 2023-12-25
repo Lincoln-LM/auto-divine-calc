@@ -11,26 +11,23 @@ from . import conditions, stronghold
         numba.uint64,
         numba.uint64,
         numba.types.ListType(conditions.numba_GenericCondition),
+        numba.int64[:],
     ),
     nogil=True,
     parallel=True,
 )
-def generate_data(progress, count, thread_count, divine_conditions):
+def generate_data(progress, count, thread_count, divine_conditions, seed_list):
     first_stronghold_locations = np.zeros(701 * 701, dtype=np.uint64)
     all_stronghold_locations = np.zeros(701 * 701, dtype=np.uint64)
-    for _ in numba.prange(thread_count):
-        tested_count = np.zeros(1, dtype=np.uint64)
-        while 0 <= atomic_add(progress, 0, 0) < count:
-            seed = np.random.randint(-(1 << 47) + 1, 1 << 47)
+    chunk_size = count // thread_count
+    for thread_number in numba.prange(thread_count):
+        start = chunk_size * thread_number
+        end = chunk_size * (thread_number + 1)
+        if thread_number == thread_count - 1:
+            end = count
+        for i in range(start, end):
+            seed = seed_list[i]
             strongholds = stronghold.gen_first_ring_strongholds(seed)
-            atomic_add(tested_count, 0, 1)
-            # assume impossible
-            if (
-                atomic_add(tested_count, 0, 0) > 100000
-                and atomic_add(progress, 0, 0) == 0
-            ):
-                atomic_add(progress, 0, -1)
-
             if not conditions.test_all_conditions(seed, divine_conditions):
                 continue
 
@@ -67,7 +64,7 @@ def circular_kernel(kernel_size):
     radius = kernel_size // 2
 
     def within_radius(x, y):
-        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius ** 2).astype(np.float64)
+        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius**2).astype(np.float64)
 
     return np.fromfunction(within_radius, (kernel_size, kernel_size), dtype=np.float64)
 

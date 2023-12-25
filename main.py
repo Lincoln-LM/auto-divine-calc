@@ -5,7 +5,7 @@ from collections import deque
 from functools import partial
 from threading import Thread
 from time import sleep
-from tkinter import Menu
+from tkinter import Menu, filedialog
 
 import customtkinter as ctk
 import matplotlib.pyplot as plt
@@ -80,6 +80,7 @@ class MainApplication(ctk.CTk):
         self.first_sh_distribution = self.all_sh_distribution = None
 
         self.optimal_coords = None
+        self.seed_list = None
 
         self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
         self.clipboard_listener = ClipboardListener(on_change=self.clipboard_handler)
@@ -170,11 +171,23 @@ class MainApplication(ctk.CTk):
         self.coords_display = ctk.CTkLabel(self, text="")
         self.coords_display.grid(row=row, column=0, columnspan=2)
 
+    def select_seed_list_file(self) -> None:
+        seeds = tuple(
+            int(line.replace("\n", ""))
+            for line in filedialog.askopenfile(
+                "r", filetypes=(("Text files", "*.txt*"),)
+            )
+        )
+        print(f"{len(seeds)} seeds loaded")
+        self.seed_list = np.array(seeds, np.int64)
+
     def configure_menubar(self):
         """Build and configure the menubar at the top of the window"""
 
         menubar = Menu(self)
-
+        menubar.add_command(
+            label="Select seeds .txt file", command=self.select_seed_list_file
+        )
         portal_menu = Menu(self, tearoff=0)
         first_portal_menu = Menu(self, tearoff=0)
         third_portal_menu = Menu(self, tearoff=0)
@@ -262,15 +275,12 @@ class MainApplication(ctk.CTk):
             )
             progress = np.zeros(1, np.int64)
 
-            ProgressThread(self.logger, progress, sample_count).start()
+            ProgressThread(self.logger, progress, len(self.seed_list)).start()
             (
                 first_sh_distribution,
                 all_sh_distribution,
             ) = generate_data(
-                progress,
-                sample_count,
-                thread_count,
-                conditions,
+                progress, len(self.seed_list), thread_count, conditions, self.seed_list
             )
             self.first_sh_distribution = first_sh_distribution / sample_count
             self.all_sh_distribution = all_sh_distribution / sample_count
