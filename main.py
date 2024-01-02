@@ -1,6 +1,7 @@
 """Main CTk GUI to be run"""
 
 import logging
+import pickle
 from collections import deque
 from functools import partial
 from threading import Thread
@@ -11,7 +12,7 @@ import customtkinter as ctk
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from numba import config
+from numba import config as numba_config
 from numba.typed import List as TypedList
 from pynput import keyboard
 
@@ -40,7 +41,7 @@ def validate_thread_count(value: str) -> bool:
     return (
         not value
         or value.isdigit()
-        and 1 <= int(value) <= config.NUMBA_DEFAULT_NUM_THREADS
+        and 1 <= int(value) <= numba_config.NUMBA_DEFAULT_NUM_THREADS
     )
 
 
@@ -64,8 +65,66 @@ class ProgressThread(Thread):
             sleep(0.05)
 
 
+class KeybindWindow(ctk.CTkToplevel):
+    """Keybind settings window"""
+
+    KEYBINDS = ["Reset", "Toggle Clipboard Listener"]
+
+    def __init__(self, master, config_location):
+        super().__init__(master)
+        self.grab_set()
+
+        self.title("Keybind Settings")
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self.config_location = config_location
+        self.buttons = []
+        self.active_button = None
+
+        # TODO: I kind of hate using pickle for this but keycodes are weird
+        try:
+            with open(self.config_location, "rb") as config_file:
+                self.config = pickle.load(config_file)
+        except FileNotFoundError:
+            self.config = {}
+
+        for i, name in enumerate(self.KEYBINDS):
+            value = self.config.get(name, None)
+            if value is not None:
+                if isinstance(value, str):
+                    value = keyboard.KeyCode.from_char(value)
+                elif isinstance(value, int):
+                    value = keyboard.Key(value)
+            ctk.CTkLabel(self, text=f"{name}:").grid(row=i, column=0)
+            button = ctk.CTkButton(self, text=str(value))
+
+            def on_press(name, button):
+                self.active_button = (name, button)
+
+            button.configure(command=partial(on_press, name, button))
+            button.grid(row=i, column=1, padx=3, pady=3)
+            self.buttons.append(button)
+
+    def on_close(self):
+        """Toplevel close handler"""
+        with open(self.config_location, "wb+") as config_file:
+            pickle.dump(self.config, config_file)
+        # hacky
+        self.master.keypress_config = self.config
+        self.master.keybind_window = None
+        self.destroy()
+
+    def set_active_keybind(self, key):
+        """Set the value for the currently active keybind"""
+        self.config[self.active_button[0]] = key
+        self.active_button[1].configure(text=str(key))
+        self.active_button = None
+
+
 class MainApplication(ctk.CTk):
     """Main CTk GUI to be run"""
+
+    CONFIG_LOCATION = "config.pkl"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -79,10 +138,18 @@ class MainApplication(ctk.CTk):
 
         self.first_sh_distribution = self.all_sh_distribution = None
 
-        self.toplevel = None
+        self.popout_window = None
+        self.keybind_window = None
+
+        try:
+            with open(self.CONFIG_LOCATION, "rb") as config_file:
+                self.keypress_config = pickle.load(config_file)
+        except FileNotFoundError:
+            self.keypress_config = {}
 
         self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
         self.clipboard_listener = ClipboardListener(on_change=self.clipboard_handler)
+        self.clipboard_listening = True
 
         self.keypress_listener.start()
         self.clipboard_listener.start()
@@ -182,27 +249,37 @@ class MainApplication(ctk.CTk):
 
     def popout(self):
         """Pop-out heatmap as its own window"""
-        if self.toplevel is not None:
-            self.toplevel.destroy()
-        self.toplevel = ctk.CTkToplevel(self)
-        self.toplevel.title("Auto Divine Calculator")
+        if self.popout_window is not None:
+            self.popout_window.destroy()
+        self.popout_window = ctk.CTkToplevel(self)
+        self.popout_window.title("Auto Divine Calculator")
+        self.popout_window.attributes("-topmost", True)
 
         def on_close():
             self.popout_canvas = None
 
-        self.toplevel.protocol("WM_DELETE_WINDOW", on_close)
-        self.popout_canvas = FigureCanvasTkAgg(self.popout_fig, self.toplevel)
+        self.popout_window.protocol("WM_DELETE_WINDOW", on_close)
+        self.popout_canvas = FigureCanvasTkAgg(self.popout_fig, self.popout_window)
         self.popout_canvas.get_tk_widget().configure(height=100, width=250)
         self.popout_canvas.get_tk_widget().pack(fill="both", expand=True)
         self.popout_coords_display = ctk.CTkLabel(
-            self.toplevel, text=self.coords_display.cget("text"), height=50, width=250
+            self.popout_window,
+            text=self.coords_display.cget("text"),
+            height=50,
+            width=250,
         )
         self.popout_coords_display.pack(fill="both", side="bottom", expand=True)
+
+    def open_keybind_window(self):
+        """Open keybind settings window"""
+        self.keybind_window = KeybindWindow(self, self.CONFIG_LOCATION)
 
     def configure_menubar(self):
         """Build and configure the menubar at the top of the window"""
 
         menubar = Menu(self)
+
+        menubar.add_command(label="Keybinds", command=self.open_keybind_window)
 
         portal_menu = Menu(self, tearoff=0)
         first_portal_menu = Menu(self, tearoff=0)
@@ -407,9 +484,21 @@ class MainApplication(ctk.CTk):
     def keypress_handler(self, key):
         """Handler to be called on every new keypress"""
         self.logger.debug("%r pressed", key)
+        if self.keybind_window is not None:
+            if self.keybind_window.active_button is not None:
+                self.keybind_window.set_active_keybind(key)
+        else:
+            for k, v in self.keypress_config.items():
+                if v == key:
+                    if k == "Reset":
+                        self.divine_condition_list.clear()
+                    elif k == "Toggle Clipboard Listener":
+                        self.clipboard_listening = not self.clipboard_listening
 
     def clipboard_handler(self, clipboard):
         """Handler to be called every time the clipboard contents change"""
+        if not self.clipboard_listening:
+            return
         self.logger.debug("New clipboard: %r", clipboard)
         # f3+i
         if clipboard.startswith("/setblock"):

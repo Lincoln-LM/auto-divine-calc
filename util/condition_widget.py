@@ -185,6 +185,13 @@ class ConditionList(ctk.CTkScrollableFrame):
         if self.command is not None:
             self.command()
 
+    def clear(self):
+        """Remove all widgets and conditions from the list"""
+        while self.widgets:
+            self.widgets.pop().pack_forget()
+        if self.command is not None:
+            self.command()
+
     @property
     def conditions(self) -> Iterable[GenericCondition]:
         """Return a generator that iterates over all GenericConditions of the widgets in the list"""
@@ -216,7 +223,12 @@ class ConditionWidget(ctk.CTkFrame):
         self.salt_entry = ctk.CTkEntry(
             self,
             validate="all",
-            validatecommand=(self.register(lambda v: v[1:].isdigit() if v[0] == "-" else v.isdigit()), "%P"),
+            validatecommand=(
+                self.register(
+                    lambda v: v[1:].isdigit() if v[0] == "-" else v.isdigit()
+                ),
+                "%P",
+            ),
         )
         self.salt_entry.insert(0, str(condition.salt))
         if display_salt:
