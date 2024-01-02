@@ -79,7 +79,7 @@ class MainApplication(ctk.CTk):
 
         self.first_sh_distribution = self.all_sh_distribution = None
 
-        self.optimal_coords = None
+        self.toplevel = None
 
         self.keypress_listener = keyboard.Listener(on_press=self.keypress_handler)
         self.clipboard_listener = ClipboardListener(on_change=self.clipboard_handler)
@@ -152,23 +152,52 @@ class MainApplication(ctk.CTk):
         self.maximum_distance_slider.set(500)
         self.maximum_distance_handler(500)
         self.fig, self.axes = plt.subplots(1, 2)
+        self.popout_fig, self.popout_axes = plt.subplots(1, 2)
 
         row += 1
+        self.popout_button = ctk.CTkButton(
+            self,
+            width=30,
+            text="⇱",
+            command=self.popout,
+        )
+        self.popout_button.grid(row=row, column=0)
         self.regenerated_button = ctk.CTkButton(
             self,
             width=300,
             text="Regenerate Stronghold Distribution",
             command=self.draw_heatmap,
         )
-        self.regenerated_button.grid(row=row, column=0, columnspan=2)
+        self.regenerated_button.grid(row=row, column=1)
 
         row += 1
         self.canvas = FigureCanvasTkAgg(self.fig, self)
         self.canvas.get_tk_widget().grid(row=row, column=0, columnspan=2)
+        self.popout_canvas = None
 
         row += 1
         self.coords_display = ctk.CTkLabel(self, text="")
         self.coords_display.grid(row=row, column=0, columnspan=2)
+        self.popout_coords_display = None
+
+    def popout(self):
+        """Pop-out heatmap as its own window"""
+        if self.toplevel is not None:
+            self.toplevel.destroy()
+        self.toplevel = ctk.CTkToplevel(self)
+        self.toplevel.title("Auto Divine Calculator")
+
+        def on_close():
+            self.popout_canvas = None
+
+        self.toplevel.protocol("WM_DELETE_WINDOW", on_close)
+        self.popout_canvas = FigureCanvasTkAgg(self.popout_fig, self.toplevel)
+        self.popout_canvas.get_tk_widget().configure(height=100, width=250)
+        self.popout_canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.popout_coords_display = ctk.CTkLabel(
+            self.toplevel, text=self.coords_display.cget("text"), height=50, width=250
+        )
+        self.popout_coords_display.pack(fill="both", side="bottom", expand=True)
 
     def configure_menubar(self):
         """Build and configure the menubar at the top of the window"""
@@ -280,6 +309,8 @@ class MainApplication(ctk.CTk):
         maximum_distance = round(self.maximum_distance_slider.get() / 8)
         self.axes[0].clear()
         self.axes[1].clear()
+        self.popout_axes[0].clear()
+        self.popout_axes[1].clear()
         all_convolved_data = convolve_data(self.all_sh_distribution, maximum_distance)
         first_convolved_data = convolve_data(
             self.first_sh_distribution,
@@ -299,6 +330,20 @@ class MainApplication(ctk.CTk):
             interpolation="nearest",
             extent=[-350, 350, 350, -350],
         )
+        self.popout_axes[0].imshow(
+            all_convolved_data,
+            origin="upper",
+            cmap="hot",
+            interpolation="nearest",
+            extent=[-350, 350, 350, -350],
+        )
+        self.popout_axes[1].imshow(
+            first_convolved_data,
+            origin="upper",
+            cmap="hot",
+            interpolation="nearest",
+            extent=[-350, 350, 350, -350],
+        )
         overall_optimal_coords = divmod(np.argmax(all_convolved_data), 701)
         overall_optimal_coords = (
             overall_optimal_coords[1] - 350,
@@ -309,6 +354,11 @@ class MainApplication(ctk.CTk):
             f"Overall: {overall_optimal_coords[0]} {overall_optimal_coords[1]} Score: {np.max(all_convolved_data)*100:.02f}%"
         )
         self.axes[0].plot(
+            *overall_optimal_coords,
+            marker="*",
+            c="green",
+        )
+        self.popout_axes[0].plot(
             *overall_optimal_coords,
             marker="*",
             c="green",
@@ -336,8 +386,17 @@ class MainApplication(ctk.CTk):
                 marker="o",
                 c="green",
             )
+            self.popout_axes[0].plot(
+                *quadrant_optimal_coords,
+                marker="o",
+                c="green",
+            )
         self.coords_display.configure(text=display_text)
         self.canvas.draw()
+        if self.popout_coords_display is not None:
+            self.popout_coords_display.configure(text=display_text)
+        if self.popout_canvas is not None:
+            self.popout_canvas.draw()
 
     def maximum_distance_handler(self, distance):
         """Handler to be called any time the maximum distance changes"""
