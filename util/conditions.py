@@ -71,7 +71,10 @@ def test_float_rand(seed, salt, maximum):
     Test if the first random float [0, 1.0)
     of a generator with the provided salt results in a value under the provided maximum
     """
-    return java_random.next_float(java_random.init(seed + salt))[1] < maximum
+    seed, chance_rand = java_random.next_float(java_random.init(seed + salt))
+    if maximum < 0.0:
+        chance_rand = -chance_rand
+    return chance_rand < maximum
 
 
 @njit_condition(numba.int64, numba.float32, numba.int64, numba.int64)
@@ -82,6 +85,8 @@ def test_float_int_pair_rand(seed, salt, float_maximum, int_maximum, int_value):
     *and* the second random int [0, int_maximum) results in the provided value
     """
     seed, chance_rand = java_random.next_float(java_random.init(seed + salt))
+    if float_maximum < 0.0:
+        chance_rand = -chance_rand
     if chance_rand > float_maximum:
         return False
     seed = java_random.next_seed(seed)
