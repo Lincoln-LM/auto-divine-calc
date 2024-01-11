@@ -67,26 +67,29 @@ def circular_kernel(kernel_size):
     radius = kernel_size // 2
 
     def within_radius(x, y):
-        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius ** 2).astype(np.float64)
+        return ((x - radius) ** 2 + (y - radius) ** 2 <= radius**2).astype(np.float64)
 
     return np.fromfunction(within_radius, (kernel_size, kernel_size), dtype=np.float64)
 
 
 def convolve_data(data, radius):
     """Convolve 2d map of data by circular kernel of specified radius"""
+    data = np.pad(data, radius * 2)
+    size = data.shape[0]
     kernel_size = np.round(radius * 2)
     kernel = np.fft.fft2(
         np.fft.ifftshift(
             np.pad(
                 circular_kernel(kernel_size),
                 (
-                    (((701 - kernel_size) + 1) // 2, (701 - kernel_size) // 2),
-                    (((701 - kernel_size) + 1) // 2, (701 - kernel_size) // 2),
+                    (((size - kernel_size) + 1) // 2, (size - kernel_size) // 2),
+                    (((size - kernel_size) + 1) // 2, (size - kernel_size) // 2),
                 ),
                 "constant",
             )
         ),
-        s=(701, 701),
+        s=(size, size),
     )
-
-    return np.real(np.fft.ifft2(np.fft.fft2(data) * kernel))
+    return np.real(np.fft.ifft2(np.fft.fft2(data) * kernel))[
+        radius * 2 : -radius * 2, radius * 2 : -radius * 2
+    ]
