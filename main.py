@@ -114,6 +114,7 @@ class KeybindWindow(ctk.CTkToplevel):
                     self.active_button = None
                 else:
                     self.active_button = (name, button)
+                    button.configure(text="...")
 
             button.configure(command=partial(on_press, name, button))
             button.grid(row=i, column=1, padx=3, pady=3)
@@ -511,6 +512,7 @@ class MainApplication(ctk.CTk):
 
     def key_press_handler(self, key):
         """Handler to be called on every new keypress"""
+        key = self.keypress_listener.canonical(key)
         self.held_keys[key] = True
         self.logger.debug("%r pressed", key)
         if self.keybind_window is not None:
@@ -530,6 +532,7 @@ class MainApplication(ctk.CTk):
 
     def key_release_handler(self, key):
         """Handler to be called on every key release"""
+        key = self.keypress_listener.canonical(key)
         self.held_keys[key] = False
         self.logger.debug("%r released", key)
 
