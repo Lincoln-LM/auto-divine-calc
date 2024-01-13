@@ -3,3 +3,5 @@ numba
 numpy
 numba-progress
 pyperclip
+customtkinter
+pynput
