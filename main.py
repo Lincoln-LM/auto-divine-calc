@@ -19,6 +19,7 @@ from pynput import keyboard
 from util.clipboard import ClipboardListener
 from util.condition_widget import (
     BuriedTreasureDialog,
+    ShipwreckDialog,
     ChanceDecoratorDialog,
     ConditionList,
     DecoratorDialog,
@@ -375,6 +376,10 @@ class MainApplication(ctk.CTk):
         menubar.add_command(
             label="Buried Treasure",
             command=lambda: BuriedTreasureDialog(self.divine_condition_list),
+        )
+        menubar.add_command(
+            label="1.15 Shipwreck",
+            command=lambda: ShipwreckDialog(self.divine_condition_list),
         )
         self.configure(menu=menubar)
 

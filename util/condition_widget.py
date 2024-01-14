@@ -4,7 +4,11 @@ from typing import Iterable
 
 import customtkinter as ctk
 
-from .conditions import GenericCondition, build_buried_treasure_condition
+from .conditions import (
+    GenericCondition,
+    build_buried_treasure_condition,
+    build_shipwreck_condition,
+)
 
 
 class NetherFossilDialog(ctk.CTkInputDialog):
@@ -109,6 +113,28 @@ class BuriedTreasureDialog(ctk.CTkInputDialog):
             pass
 
 
+class ShipwreckDialog(ctk.CTkInputDialog):
+    """Input dialog for entering 1.15 shipwreck coordinates"""
+
+    def __init__(self, condition_list, *args, **kwargs):
+        super().__init__(
+            *args,
+            title="1.15 Shipwreck",
+            text="Enter the chunk coordinates of the shipwreck seperated by a space",
+            **kwargs,
+        )
+        self.condition_list = condition_list
+        self.get_input()
+
+    def get_input(self):
+        try:
+            value = super().get_input()
+            chunk_x, chunk_z = tuple(int(c) for c in value.split(" "))
+            self.condition_list.add_shipwreck_condition(chunk_x, chunk_z)
+        except (ValueError, AttributeError):
+            pass
+
+
 class ConditionList(ctk.CTkScrollableFrame):
     """Scrollable list of ConditionWidget"""
 
@@ -165,6 +191,15 @@ class ConditionList(ctk.CTkScrollableFrame):
         self.add_condition(
             build_buried_treasure_condition(chunk_x, chunk_z),
             name=f"Buried Treasure {chunk_x},{chunk_z}",
+            display_salt=False,
+            display_int_rand=False,
+            display_float_rand=False,
+        )
+
+    def add_shipwreck_condition(self, chunk_x, chunk_z):
+        self.add_condition(
+            build_shipwreck_condition(chunk_x, chunk_z),
+            name=f"1.15 Shipwreck {chunk_x},{chunk_z}",
             display_salt=False,
             display_int_rand=False,
             display_float_rand=False,

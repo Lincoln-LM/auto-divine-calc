@@ -30,6 +30,20 @@ def build_buried_treasure_condition(chunk_x: int, chunk_z: int) -> GenericCondit
     )
 
 
+def build_shipwreck_condition(chunk_x: int, chunk_z: int) -> GenericCondition:
+    """Build a GenericCondition checking if a 1.15 shipwreck can spawn at the provided chunk"""
+    reg_x, rand_x = divmod(chunk_x, 8)
+    reg_z, rand_z = divmod(chunk_z, 8)
+    return GenericCondition(
+        np.int64(reg_x) * np.int64(341873128712)
+        + np.int64(reg_z) * np.int64(132897987541)
+        + np.int64(165745295),
+        8,
+        rand_x,
+        0.0,
+    )
+
+
 def build_first_portal_condition(direction: int) -> GenericCondition:
     """
     Build a GenericCondition checking if the direction of the first portal
