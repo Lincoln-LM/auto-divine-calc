@@ -31,6 +31,16 @@ def next_int(seed, maximum):
     return seed, (maximum * (seed >> np.uint64(17))) >> np.uint64(31)
 
 
+@numba.njit(numba.types.UniTuple(numba.int64, 2)(numba.int64))
+def next_long(seed):
+    """Advance seed and generate next long"""
+    seed = next_seed(seed)
+    a = np.int32(seed >> np.int64(16))
+    seed = next_seed(seed)
+    b = np.int32(seed >> np.int64(16))
+    return seed, (np.int64(np.uint64(a)) << np.int64(32)) + b
+
+
 @numba.njit(numba.types.Tuple((numba.int64, numba.float32))(numba.int64))
 def next_float(seed):
     """Advance seed and generate next float32"""

@@ -26,10 +26,10 @@ from util.condition_widget import (
     NetherFossilDialog,
 )
 from util.conditions import (
-    GenericCondition,
+    GenericConditionSet,
     build_first_portal_condition,
     build_third_portal_condition,
-    numba_GenericCondition,
+    numba_GenericConditionSet,
 )
 from util.heatmap import convolve_data, generate_data
 
@@ -387,7 +387,7 @@ class MainApplication(ctk.CTk):
             sample_count, thread_count = int(self.sample_count_entry.get()), int(
                 self.thread_count_entry.get()
             )
-            conditions = TypedList.empty_list(numba_GenericCondition)
+            conditions = TypedList.empty_list(numba_GenericConditionSet)
             deque(map(conditions.append, self.divine_condition_list.conditions), 0)
             self.logger.info(
                 "Generating %d samples on %d threads with %d conditions",

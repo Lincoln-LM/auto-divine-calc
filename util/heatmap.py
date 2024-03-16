@@ -10,7 +10,7 @@ from . import conditions, stronghold
         numba.int64[:],
         numba.uint64,
         numba.uint64,
-        numba.types.ListType(conditions.numba_GenericCondition),
+        numba.types.ListType(conditions.numba_GenericConditionSet),
     ),
     nogil=True,
     parallel=True,

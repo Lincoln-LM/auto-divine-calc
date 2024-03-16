@@ -1,10 +1,16 @@
 """GUI widgets for handling divine conditions"""
 
 from typing import Iterable
+import numpy as np
+from functools import partial
 
 import customtkinter as ctk
 
-from .conditions import GenericCondition, build_buried_treasure_condition
+from .conditions import (
+    GenericConditionSet,
+    GenericCondition,
+    build_buried_treasure_condition,
+)
 
 
 class NetherFossilDialog(ctk.CTkInputDialog):
@@ -121,7 +127,7 @@ class ConditionList(ctk.CTkScrollableFrame):
         self.add_condition_button = ctk.CTkButton(
             self,
             text="Add Generic Condition",
-            command=lambda *_: self.add_condition(GenericCondition(0, 0, 0, 0.0)),
+            command=lambda *_: self.add_condition(GenericConditionSet()),
         )
         self.add_condition_button.pack(side="bottom")
 
@@ -164,10 +170,8 @@ class ConditionList(ctk.CTkScrollableFrame):
     def add_buried_treasure_condition(self, chunk_x, chunk_z):
         self.add_condition(
             build_buried_treasure_condition(chunk_x, chunk_z),
+            labels=("", "", "", ""),
             name=f"Buried Treasure {chunk_x},{chunk_z}",
-            display_salt=False,
-            display_int_rand=False,
-            display_float_rand=False,
         )
 
     def add_condition(self, condition, **kwargs):
@@ -193,9 +197,11 @@ class ConditionList(ctk.CTkScrollableFrame):
             self.command()
 
     @property
-    def conditions(self) -> Iterable[GenericCondition]:
-        """Return a generator that iterates over all GenericConditions of the widgets in the list"""
-        return (widget.condition for widget in self.widgets)
+    def conditions(self) -> Iterable[GenericConditionSet]:
+        """Return a generator that iterates over all GenericConditionSets of the widgets in the list"""
+        return (
+            widget.condition for widget in self.widgets if widget.enabled_checkbox.get()
+        )
 
 
 class ConditionWidget(ctk.CTkFrame):
@@ -204,21 +210,19 @@ class ConditionWidget(ctk.CTkFrame):
     def __init__(
         self,
         master: ConditionList,
-        condition: GenericCondition,
+        condition: GenericConditionSet,
         *args,
+        name="Generic Condition",
+        labels=("R1", "R2", "R3", "R4"),
+        types=(None, None, None, None),
         width: int = 1000,
         height: int = 50,
-        display_int_rand: bool = True,
-        display_float_rand: bool = True,
-        display_salt: bool = True,
-        name: str = None,
         **kwargs,
     ):
         super().__init__(master, *args, width, height, **kwargs)
 
-        if name:
-            self.name_label = ctk.CTkLabel(self, text=name)
-            self.name_label.pack(side="left", padx=5)
+        self.name_label = ctk.CTkLabel(self, text=name)
+        self.name_label.grid(row=0, column=0)
 
         self.salt_entry = ctk.CTkEntry(
             self,
@@ -231,48 +235,116 @@ class ConditionWidget(ctk.CTkFrame):
             ),
         )
         self.salt_entry.insert(0, str(condition.salt))
-        if display_salt:
-            self.salt_entry.pack(side="left", padx=5)
+        self.salt_entry.grid(row=0, column=1)
 
-        self.int_maximum_entry = ctk.CTkEntry(
-            self,
-            70,
-            validate="all",
-            validatecommand=(self.register(str.isdigit), "%P"),
-        )
-        self.int_maximum_entry.insert(0, str(condition.int_maximum))
-        if display_int_rand:
-            self.int_maximum_entry.pack(side="left", padx=5)
+        self.enabled_checkbox = ctk.CTkCheckBox(self, text="Enabled")
+        self.enabled_checkbox.select()
+        self.enabled_checkbox.grid(row=0, column=2)
 
-        self.int_value_entry = ctk.CTkEntry(
-            self,
-            70,
-            validate="all",
-            validatecommand=(self.register(str.isdigit), "%P"),
-        )
-        self.int_value_entry.insert(0, str(condition.int_value))
-        if display_int_rand:
-            self.int_value_entry.pack(side="left", padx=5)
+        self.int_value_entries = []
+        self.int_maximum_entries = []
+        self.float_minimum_entries = []
+        self.float_maximum_entries = []
 
-        self.float_maximum_entry = ctk.CTkEntry(self, 70)
-        self.float_maximum_entry.insert(0, str(condition.float_maximum))
-        if display_float_rand:
-            self.float_maximum_entry.pack(side="left", padx=5)
+        for i, (c, label, ctype) in enumerate(zip(condition[1:], labels, types)):
+            type_selector = None
+            if label:
+                if ctype is None:
+
+                    def callback(i, value):
+                        self.int_value_entries[i].grid_forget()
+                        self.int_maximum_entries[i].grid_forget()
+                        self.float_minimum_entries[i].grid_forget()
+                        self.float_maximum_entries[i].grid_forget()
+                        if value == "int":
+                            self.int_value_entries[i].grid(row=i + 1, column=1)
+                            self.int_maximum_entries[i].grid(row=i + 1, column=2)
+                        else:
+                            self.float_minimum_entries[i].grid(row=i + 1, column=1)
+                            self.float_maximum_entries[i].grid(row=i + 1, column=2)
+
+                    type_selector = ctk.CTkComboBox(
+                        self, values=["int", "float"], command=partial(callback, i)
+                    )
+                    type_selector.grid(row=i + 1, column=0)
+                else:
+                    ctk.CTkLabel(self, text=label).grid(row=i + 1, column=0)
+            int_value_entry = ctk.CTkEntry(
+                self,
+                70,
+                validate="all",
+                validatecommand=(self.register(str.isdigit), "%P"),
+            )
+            int_value_entry.insert(0, str(c.int_value))
+            int_maximum_entry = ctk.CTkEntry(
+                self,
+                70,
+                validate="all",
+                validatecommand=(self.register(str.isdigit), "%P"),
+            )
+            int_maximum_entry.insert(0, str(c.int_maximum))
+            float_minimum_entry = ctk.CTkEntry(
+                self,
+                70,
+            )
+            float_minimum_entry.insert(0, str(c.float_minimum))
+            float_maximum_entry = ctk.CTkEntry(
+                self,
+                70,
+            )
+            float_maximum_entry.insert(0, str(c.float_maximum))
+            if ctype is int or (
+                type_selector is not None and type_selector.get() == "int"
+            ):
+                if label:
+                    int_value_entry.grid(row=i + 1, column=1)
+                    int_maximum_entry.grid(row=i + 1, column=2)
+            if ctype is float or (
+                type_selector is not None and type_selector.get() == "float"
+            ):
+                if label:
+                    float_minimum_entry.grid(row=i + 1, column=1)
+                    float_maximum_entry.grid(row=i + 1, column=2)
+            self.int_value_entries.append(int_value_entry)
+            self.int_maximum_entries.append(int_maximum_entry)
+            self.float_minimum_entries.append(float_minimum_entry)
+            self.float_maximum_entries.append(float_maximum_entry)
 
         self.delete_button = ctk.CTkButton(
             self, text="Delete", command=lambda *_: self.master.remove_widget(self)
         )
-        self.delete_button.pack(side="right", padx=5)
+        self.delete_button.grid(row=0, column=3)
 
     @property
-    def condition(self) -> GenericCondition:
-        """Build a GenericCondition from the widget's entries"""
+    def condition(self) -> GenericConditionSet:
+        """Build a GenericConditionSet from the widget's entries"""
         try:
-            return GenericCondition(
-                int(self.salt_entry.get()),
-                int(self.int_maximum_entry.get()),
-                int(self.int_value_entry.get()),
-                float(self.float_maximum_entry.get()),
+            return GenericConditionSet(
+                np.int64(self.salt_entry.get()),
+                GenericCondition(
+                    np.int64(self.int_maximum_entries[0].get()),
+                    np.int64(self.int_value_entries[0].get()),
+                    np.float64(self.float_minimum_entries[0].get()),
+                    np.float64(self.float_maximum_entries[0].get()),
+                ),
+                GenericCondition(
+                    np.int64(self.int_maximum_entries[1].get()),
+                    np.int64(self.int_value_entries[1].get()),
+                    np.float64(self.float_minimum_entries[1].get()),
+                    np.float64(self.float_maximum_entries[1].get()),
+                ),
+                GenericCondition(
+                    np.int64(self.int_maximum_entries[2].get()),
+                    np.int64(self.int_value_entries[2].get()),
+                    np.float64(self.float_minimum_entries[2].get()),
+                    np.float64(self.float_maximum_entries[2].get()),
+                ),
+                GenericCondition(
+                    np.int64(self.int_maximum_entries[3].get()),
+                    np.int64(self.int_value_entries[3].get()),
+                    np.float64(self.float_minimum_entries[3].get()),
+                    np.float64(self.float_maximum_entries[3].get()),
+                ),
             )
         except ValueError:
-            return GenericCondition(0, 0, 0, 0.0)
+            return GenericConditionSet()
