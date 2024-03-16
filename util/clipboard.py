@@ -3,6 +3,7 @@
 from threading import Thread
 
 import pyperclip
+import time
 
 
 class ClipboardListener(Thread):
@@ -16,6 +17,7 @@ class ClipboardListener(Thread):
 
     def run(self):
         while True:
+            time.sleep(0.2)
             # pyperclip.paste() spamming may interfere with other clipboard listeners
             if not self.listening:
                 continue
